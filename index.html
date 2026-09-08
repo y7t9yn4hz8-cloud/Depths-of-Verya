@@ -73,12 +73,24 @@ input,select{width:100%;margin-top:3px;background:#0b0907;color:var(--text);bord
 .enemy{position:absolute;left:50%;top:46%;transform:translate(-50%,-50%);font-size:74px;filter:drop-shadow(0 12px 9px #000);text-align:center}
 .enemyname{font-size:13px;background:#080706cc;border:1px solid #5f4d31;padding:3px 7px;border-radius:5px}
 .badge{display:inline-block;border:1px solid #5f4e31;border-radius:20px;padding:2px 7px;margin-left:4px;color:var(--muted)}
+
+.mapmodal{position:absolute;inset:0;background:#000e;display:flex;align-items:center;justify-content:center;z-index:20;padding:14px}
+.mapbox{width:min(720px,100%);max-height:92%;overflow:auto;padding:14px;border:1px solid var(--line);border-radius:10px;background:#15120d}
+.maphead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
+.maphead h2{margin:0;color:var(--accent);font-size:19px}
+.mapwrap{width:100%;max-height:62vh;overflow:auto;border:1px solid #4d422d;background:#000;padding:6px;border-radius:6px}
+#dungeonMap{display:grid;grid-template-columns:repeat(41,14px);grid-auto-rows:14px;width:max-content;background:#000}
+.maptile{width:14px;height:14px;background:#000;border:1px solid #050505}
+.maptile.seen{background:#4d493e;border-color:#66604f}
+.maptile.current{background:#d8b968;color:#111;font-size:10px;line-height:12px;text-align:center;font-weight:bold;border-color:#f0d98e}
+.maplegend{font-size:12px;color:var(--muted);margin:8px 0 0;line-height:1.4}
+
 </style>
 </head>
 <body>
 <div id="app">
   <div class="topbar">
-    <div><div class="title">DEPTHS OF VEYRA</div><div class="small">Prototype 0.2 · iPhone web app</div></div>
+    <div><div class="title">DEPTHS OF VEYRA</div><div class="small">Prototype 0.3 · explored dungeon map</div></div>
     <div class="small" id="location">Floor 1 · 0,0</div>
   </div>
   <div class="main">
@@ -99,10 +111,11 @@ input,select{width:100%;margin-top:3px;background:#0b0907;color:var(--text);bord
         <button id="attack" class="danger">⚔</button>
         <button id="search" class="good">✦</button>
       </div>
-      <div class="controls" style="padding-top:0;grid-template-columns:repeat(4,1fr)">
+      <div class="controls" style="padding-top:0;grid-template-columns:repeat(5,1fr)">
         <button class="secondary" id="rest">REST</button>
         <button class="secondary" id="save">SAVE</button>
         <button class="secondary" id="load">LOAD</button>
+        <button class="secondary" id="mapbtn">MAP</button>
         <button class="secondary" id="newgame">NEW</button>
       </div>
     </section>
@@ -114,6 +127,18 @@ input,select{width:100%;margin-top:3px;background:#0b0907;color:var(--text);bord
       <div class="log" id="log"><h3>JOURNAL</h3></div>
     </aside>
   </div>
+</div>
+
+
+<div class="mapmodal hidden" id="mapModal">
+ <div class="mapbox">
+  <div class="maphead">
+   <div><h2>DUNGEON MAP</h2><div class="small" id="mapFloor">Floor 1</div></div>
+   <button class="secondary" id="closeMap">CLOSE</button>
+  </div>
+  <div class="mapwrap"><div id="dungeonMap" aria-label="Explored dungeon map"></div></div>
+  <div class="maplegend">Black = unexplored · gray = explored · gold arrow = your position and facing direction. Each floor is 41 × 41 spaces.</div>
+ </div>
 </div>
 
 <div class="modal" id="startModal">
@@ -146,6 +171,7 @@ const enemyTypes=[
  {name:"Ash Goblin",icon:"👺",hp:18,atk:6,gold:[6,14]},
  {name:"Crypt Shade",icon:"👻",hp:24,atk:7,gold:[9,18]}
 ];
+const MAP_HALF=20;
 let state=null;
 
 function makeMember(name,cls){
@@ -156,10 +182,11 @@ function newState(){
  return {
   floor:1,x:0,y:0,dir:0,steps:0,gold:12,
   party:[makeMember($("#leaderName").value||"Alden",$("#leaderClass").value),makeMember($("#compName").value||"Mira",$("#compClass").value)],
-  inv:["Rusty Key","2× Ration"],visited:{"0,0":true},enemy:null,rooms:{}
+  inv:["Rusty Key","2× Ration"],visited:{"1:0,0":true},enemy:null,rooms:{}
  };
 }
 function key(){return state.x+","+state.y}
+function visitKey(x=state.x,y=state.y,f=state.floor){return f+":"+x+","+y}
 function seededRoom(x,y){
  let n=Math.abs((x*73856093)^(y*19349663)^(state.floor*83492791));
  return {enemy:n%5===0,loot:n%7===0,desc:[
@@ -182,6 +209,32 @@ function ensureRoom(){
    log("A "+e.name+" emerges from the darkness.");
  }
 }
+
+function renderMap(){
+ const map=$("#dungeonMap");
+ map.innerHTML="";
+ $("#mapFloor").textContent=`Floor ${state.floor} · ${state.x},${state.y}`;
+ const arrows=["▲","▶","▼","◀"];
+ for(let y=-MAP_HALF;y<=MAP_HALF;y++){
+  for(let x=-MAP_HALF;x<=MAP_HALF;x++){
+   const d=document.createElement("div");
+   d.className="maptile";
+   if(state.visited && (state.visited[visitKey(x,y)] || state.visited[x+","+y])) d.classList.add("seen");
+   if(x===state.x && y===state.y){
+    d.classList.add("current");
+    d.textContent=arrows[state.dir];
+   }
+   map.appendChild(d);
+  }
+ }
+ requestAnimationFrame(()=>{
+  const wrap=map.parentElement;
+  const cx=(state.x+MAP_HALF)*14, cy=(state.y+MAP_HALF)*14;
+  wrap.scrollLeft=Math.max(0,cx-wrap.clientWidth/2);
+  wrap.scrollTop=Math.max(0,cy-wrap.clientHeight/2);
+ });
+}
+
 function render(){
  $("#location").textContent=`Floor ${state.floor} · ${state.x},${state.y} · ${dirs[state.dir]}`;
  $("#gold").textContent=state.gold+" gold";
@@ -205,8 +258,14 @@ function log(t){
 function blocked(){if(state.enemy){log("The enemy blocks your way.");return true}return false}
 function move(){
  if(blocked()) return;
- if(state.dir===0) state.y--; if(state.dir===1) state.x++; if(state.dir===2) state.y++; if(state.dir===3) state.x--;
- state.steps++; state.visited[key()]=true; ensureRoom(); render();
+ let nx=state.x,ny=state.y;
+ if(state.dir===0) ny--; if(state.dir===1) nx++; if(state.dir===2) ny++; if(state.dir===3) nx--;
+ if(nx < -MAP_HALF || nx > MAP_HALF || ny < -MAP_HALF || ny > MAP_HALF){
+  log("Solid rock blocks the edge of this floor.");
+  return;
+ }
+ state.x=nx; state.y=ny;
+ state.steps++; state.visited[visitKey()]=true; ensureRoom(); render();
 }
 function enemyTurn(){
  if(!state.enemy)return;
@@ -261,7 +320,11 @@ function save(){localStorage.setItem("veyra-save",JSON.stringify(state));log("Ga
 function load(){
  let s=localStorage.getItem("veyra-save");
  if(!s){log("No saved game found.");return}
- state=JSON.parse(s);log("Saved game restored.");render();
+ state=JSON.parse(s);
+ if(!state.visited) state.visited={};
+ Object.keys(state.visited).forEach(k=>{if(!k.includes(":")) state.visited[state.floor+":"+k]=true});
+ state.visited[visitKey()]=true;
+ log("Saved game restored.");render();
 }
 function flash(c){let f=$("#flash");f.style.background=c;setTimeout(()=>f.style.background="#0000",110)}
 $("#forward").onclick=move;
@@ -269,9 +332,11 @@ $("#turnL").onclick=()=>{if(!blocked()){state.dir=(state.dir+3)%4;render()}};
 $("#turnR").onclick=()=>{if(!blocked()){state.dir=(state.dir+1)%4;render()}};
 $("#attack").onclick=attack; $("#search").onclick=searchRoom; $("#rest").onclick=rest;
 $("#save").onclick=save; $("#load").onclick=load;
+$("#mapbtn").onclick=()=>{renderMap();$("#mapModal").classList.remove("hidden")};
+$("#closeMap").onclick=()=>$("#mapModal").classList.add("hidden");
 $("#newgame").onclick=()=>{$("#startModal").classList.remove("hidden")};
 $("#begin").onclick=()=>{
- state=newState(); $("#startModal").classList.add("hidden"); ensureRoom(); log("You descend beneath Veyra. The gate seals behind you.");render();
+ state=newState(); state.visited[visitKey()]=true; $("#startModal").classList.add("hidden"); ensureRoom(); log("You descend beneath Veyra. The gate seals behind you.");render();
 };
 </script>
 

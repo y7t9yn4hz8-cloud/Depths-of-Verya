@@ -1,16 +1,11 @@
-Depths of Veyra — PWA Prototype 0.2
+Depths of Veyra — PWA Prototype 0.3
 
-This package is ready to be hosted as a small static website.
-Files:
-- index.html
-- manifest.webmanifest
-- sw.js
-- app icons
+New in 0.3:
+- 41 × 41 dungeon floor map
+- unexplored areas remain black
+- explored tiles remain visible
+- current position and facing direction shown with a gold arrow
+- map exploration is saved with the game
+- prototype 0.2 saves are migrated when loaded
 
-On iPhone, after it is hosted:
-1. Open the site in Safari.
-2. Tap Share.
-3. Tap Add to Home Screen.
-4. Launch Veyra from its icon.
-
-The game saves locally on the device/browser using localStorage.
+Upload these files to the root of the existing GitHub repository.

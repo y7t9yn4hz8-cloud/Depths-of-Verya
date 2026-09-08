@@ -1,7 +1,7 @@
 {
   "name": "Depths of Veyra",
   "short_name": "Veyra",
-  "description": "An original old-school first-person party dungeon crawler.",
+  "description": "An original old-school first-person party dungeon crawler with an exploration map.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
