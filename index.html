@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Depths of Veyra</title>
+
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#11100d">
+<meta name="apple-mobile-web-app-title" content="Veyra">
+<link rel="apple-touch-icon" href="icon-180.png">
+
+<style>
+:root{
+  --bg:#11100d; --panel:#1b1812; --panel2:#262116; --line:#76623c;
+  --text:#e7d7ad; --muted:#ad9b72; --accent:#d8b968; --danger:#d37867;
+  --good:#79b56b;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:#070706;color:var(--text);font-family:Georgia, "Times New Roman", serif;height:100%;overflow:hidden}
+body{display:flex;justify-content:center}
+#app{width:min(100vw,820px);height:100dvh;background:radial-gradient(circle at 50% 20%,#211c12 0,#0c0b08 48%,#050504 100%);display:flex;flex-direction:column;padding:env(safe-area-inset-top) 10px env(safe-area-inset-bottom)}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:8px 4px 6px}
+.title{font-weight:700;letter-spacing:.08em;font-size:18px}
+.small{font-size:12px;color:var(--muted)}
+.main{display:grid;grid-template-columns:1fr 0.78fr;gap:8px;min-height:0;flex:1}
+@media(max-width:650px){.main{grid-template-columns:1fr;grid-template-rows:1fr auto}.party{max-height:31vh}}
+.card{border:1px solid var(--line);background:linear-gradient(#1d1912,#12100c);border-radius:10px;box-shadow:0 0 0 1px #000 inset,0 8px 30px #0007}
+.view{position:relative;overflow:hidden;display:flex;flex-direction:column}
+.scene{position:relative;flex:1;min-height:260px;background:#070706;perspective:700px;overflow:hidden}
+.ceiling,.floor{position:absolute;left:0;right:0;height:50%}
+.ceiling{top:0;background:linear-gradient(#15130f,#090806)}
+.floor{bottom:0;background:linear-gradient(#090806,#1c1811)}
+.wall-center{position:absolute;left:25%;right:25%;top:16%;bottom:16%;background:
+linear-gradient(90deg,#2b261d 0 7%,#3b3428 7% 14%,#29241c 14% 21%,#403829 21% 28%,#2a261d 28% 35%,#393225 35% 42%,#2a261f 42% 49%,#41392b 49% 56%,#2b261e 56% 63%,#3c3427 63% 70%,#29241b 70% 77%,#403729 77% 84%,#2b261e 84% 91%,#3a3326 91% 100%);
+box-shadow:0 0 70px #000 inset,0 0 30px #000}
+.leftwall,.rightwall{position:absolute;top:4%;bottom:4%;width:39%;background:#1e1a14;box-shadow:0 0 45px #000 inset}
+.leftwall{left:-11%;transform:rotateY(58deg);transform-origin:left center}
+.rightwall{right:-11%;transform:rotateY(-58deg);transform-origin:right center}
+.door{position:absolute;left:38%;width:24%;top:29%;height:42%;border:5px solid #57472d;border-bottom:none;background:#070706;box-shadow:0 0 15px #000 inset}
+.torch{position:absolute;top:31%;font-size:25px;filter:drop-shadow(0 0 8px #d69a3d)}
+.t1{left:29%}.t2{right:29%}
+.caption{position:absolute;left:8px;right:8px;bottom:8px;text-align:center;background:#0b0906cc;border:1px solid #5d4c2e;padding:7px;border-radius:6px;font-size:13px}
+.combat-flash{position:absolute;inset:0;pointer-events:none;background:#8a201a00;transition:.12s}
+.controls{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;padding:8px}
+button{appearance:none;border:1px solid #7f6b42;background:linear-gradient(#31291a,#17130e);color:var(--text);border-radius:8px;padding:11px 6px;font:700 15px Georgia,serif;box-shadow:0 2px 0 #000}
+button:active{transform:translateY(1px);background:#0f0d09}
+button.secondary{font-size:12px;padding:8px}
+button.good{border-color:#52764b}
+button.danger{border-color:#844c43}
+.party{display:flex;flex-direction:column;min-height:0}
+.party h3,.log h3{margin:8px 10px 3px;font-size:14px;color:var(--accent);letter-spacing:.06em}
+.member{padding:7px 9px;border-top:1px solid #3a3222}
+.name{display:flex;justify-content:space-between;font-size:14px}
+.bars{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:4px}
+.bar{height:9px;border:1px solid #5a4d33;background:#080706;border-radius:99px;overflow:hidden}
+.fill{height:100%;background:#7d7a68}.hp{background:#8e5f55}.mp{background:#586d83}
+.stats{font-size:11px;color:var(--muted);margin-top:4px}
+.inventory{display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:7px}
+.inv{font-size:11px;border:1px solid #4e432d;border-radius:5px;padding:6px;background:#100e0a}
+.log{margin-top:auto;min-height:95px;max-height:145px;overflow:auto;border-top:1px solid var(--line);padding:0 8px 7px;font-size:12px;line-height:1.35}
+.log div{padding:2px 0}
+.modal{position:absolute;inset:0;background:#000d;display:flex;align-items:center;justify-content:center;z-index:10;padding:18px}
+.modalbox{width:min(520px,100%);max-height:90%;overflow:auto;padding:18px;border:1px solid var(--line);border-radius:10px;background:#17130e}
+.modal h1{font-size:27px;margin:0 0 5px;color:var(--accent);text-align:center}
+.modal p{color:var(--muted);font-size:14px;line-height:1.4}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+label{font-size:12px;color:var(--muted)}
+input,select{width:100%;margin-top:3px;background:#0b0907;color:var(--text);border:1px solid #67573a;border-radius:6px;padding:10px;font-size:16px}
+.hidden{display:none}
+.enemy{position:absolute;left:50%;top:46%;transform:translate(-50%,-50%);font-size:74px;filter:drop-shadow(0 12px 9px #000);text-align:center}
+.enemyname{font-size:13px;background:#080706cc;border:1px solid #5f4d31;padding:3px 7px;border-radius:5px}
+.badge{display:inline-block;border:1px solid #5f4e31;border-radius:20px;padding:2px 7px;margin-left:4px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="topbar">
+    <div><div class="title">DEPTHS OF VEYRA</div><div class="small">Prototype 0.2 · iPhone web app</div></div>
+    <div class="small" id="location">Floor 1 · 0,0</div>
+  </div>
+  <div class="main">
+    <section class="card view">
+      <div class="scene" id="scene">
+        <div class="ceiling"></div><div class="floor"></div>
+        <div class="leftwall"></div><div class="rightwall"></div><div class="wall-center"></div>
+        <div class="door" id="door"></div>
+        <div class="torch t1">🔥</div><div class="torch t2">🔥</div>
+        <div class="enemy hidden" id="enemySprite"><div id="enemyIcon">👹</div><div class="enemyname" id="enemyName">Ghoul</div></div>
+        <div class="combat-flash" id="flash"></div>
+        <div class="caption" id="caption">The air smells of cold stone and old iron.</div>
+      </div>
+      <div class="controls">
+        <button id="turnL">↶</button>
+        <button id="forward">▲</button>
+        <button id="turnR">↷</button>
+        <button id="attack" class="danger">⚔</button>
+        <button id="search" class="good">✦</button>
+      </div>
+      <div class="controls" style="padding-top:0;grid-template-columns:repeat(4,1fr)">
+        <button class="secondary" id="rest">REST</button>
+        <button class="secondary" id="save">SAVE</button>
+        <button class="secondary" id="load">LOAD</button>
+        <button class="secondary" id="newgame">NEW</button>
+      </div>
+    </section>
+    <aside class="card party">
+      <h3>PARTY</h3>
+      <div id="party"></div>
+      <h3>PACK <span class="badge" id="gold">0 gold</span></h3>
+      <div class="inventory" id="inventory"></div>
+      <div class="log" id="log"><h3>JOURNAL</h3></div>
+    </aside>
+  </div>
+</div>
+
+<div class="modal" id="startModal">
+ <div class="modalbox">
+  <h1>Depths of Veyra</h1>
+  <p>A small original dungeon crawler inspired by the feel of late-90s first-person party RPGs. This prototype uses original names, code and presentation.</p>
+  <div class="grid2">
+    <label>Leader name<input id="leaderName" value="Alden" maxlength="14"></label>
+    <label>Leader class<select id="leaderClass"><option>Warrior</option><option>Ranger</option><option>Mage</option><option>Cleric</option></select></label>
+    <label>Companion name<input id="compName" value="Mira" maxlength="14"></label>
+    <label>Companion class<select id="compClass"><option>Cleric</option><option>Warrior</option><option>Ranger</option><option>Mage</option></select></label>
+  </div>
+  <p><b>Controls:</b> turn left/right, move forward, attack enemies, and search rooms for loot. The dungeon is generated as you explore and your save is stored on this device.</p>
+  <button id="begin" style="width:100%;margin-top:4px">ENTER THE DEPTHS</button>
+ </div>
+</div>
+
+<script>
+const $=s=>document.querySelector(s);
+const dirs=["North","East","South","West"];
+const classData={
+ Warrior:{hp:34,mp:4,atk:8,def:5},
+ Ranger:{hp:27,mp:8,atk:7,def:4},
+ Mage:{hp:19,mp:24,atk:9,def:2},
+ Cleric:{hp:25,mp:18,atk:6,def:4}
+};
+const enemyTypes=[
+ {name:"Cave Rat",icon:"🐀",hp:8,atk:3,gold:[1,5]},
+ {name:"Bone Guard",icon:"💀",hp:15,atk:5,gold:[4,10]},
+ {name:"Ash Goblin",icon:"👺",hp:18,atk:6,gold:[6,14]},
+ {name:"Crypt Shade",icon:"👻",hp:24,atk:7,gold:[9,18]}
+];
+let state=null;
+
+function makeMember(name,cls){
+ let c=classData[cls];
+ return {name,cls,level:1,xp:0,hp:c.hp,maxhp:c.hp,mp:c.mp,maxmp:c.mp,atk:c.atk,def:c.def};
+}
+function newState(){
+ return {
+  floor:1,x:0,y:0,dir:0,steps:0,gold:12,
+  party:[makeMember($("#leaderName").value||"Alden",$("#leaderClass").value),makeMember($("#compName").value||"Mira",$("#compClass").value)],
+  inv:["Rusty Key","2× Ration"],visited:{"0,0":true},enemy:null,rooms:{}
+ };
+}
+function key(){return state.x+","+state.y}
+function seededRoom(x,y){
+ let n=Math.abs((x*73856093)^(y*19349663)^(state.floor*83492791));
+ return {enemy:n%5===0,loot:n%7===0,desc:[
+ "Moisture beads on blocks carved with faded runes.",
+ "A narrow chamber opens beyond a cracked arch.",
+ "Scratches on the floor suggest something heavy was dragged here.",
+ "A cold draft slips through unseen cracks.",
+ "The silence here feels deliberate.",
+ "Broken pottery lies beneath a soot-darkened niche."
+ ][n%6]};
+}
+function ensureRoom(){
+ let k=key();
+ if(!state.rooms[k]) state.rooms[k]=seededRoom(state.x,state.y);
+ let r=state.rooms[k];
+ if(r.enemy && !r.cleared && !state.enemy){
+   let idx=Math.min(enemyTypes.length-1, Math.floor((Math.abs(state.x)+Math.abs(state.y)+state.floor)/3));
+   let e=enemyTypes[idx];
+   state.enemy={...e,hp:e.hp,maxhp:e.hp};
+   log("A "+e.name+" emerges from the darkness.");
+ }
+}
+function render(){
+ $("#location").textContent=`Floor ${state.floor} · ${state.x},${state.y} · ${dirs[state.dir]}`;
+ $("#gold").textContent=state.gold+" gold";
+ $("#party").innerHTML=state.party.map(m=>`
+  <div class="member">
+   <div class="name"><b>${m.name}</b><span>${m.cls} Lv.${m.level}</span></div>
+   <div class="bars"><div class="bar"><div class="fill hp" style="width:${100*m.hp/m.maxhp}%"></div></div><div class="bar"><div class="fill mp" style="width:${100*m.mp/m.maxmp}%"></div></div></div>
+   <div class="stats">HP ${m.hp}/${m.maxhp} · MP ${m.mp}/${m.maxmp} · ATK ${m.atk} · DEF ${m.def}</div>
+  </div>`).join("");
+ $("#inventory").innerHTML=state.inv.slice(0,8).map(i=>`<div class="inv">${i}</div>`).join("") || `<div class="inv">Empty</div>`;
+ let r=state.rooms[key()]||seededRoom(state.x,state.y);
+ $("#caption").textContent=state.enemy?`${state.enemy.name}: ${state.enemy.hp}/${state.enemy.maxhp} HP`:r.desc;
+ if(state.enemy){
+   $("#enemySprite").classList.remove("hidden");
+   $("#enemyIcon").textContent=state.enemy.icon; $("#enemyName").textContent=state.enemy.name;
+ } else $("#enemySprite").classList.add("hidden");
+}
+function log(t){
+ let d=document.createElement("div"); d.textContent="• "+t; $("#log").appendChild(d); $("#log").scrollTop=$("#log").scrollHeight;
+}
+function blocked(){if(state.enemy){log("The enemy blocks your way.");return true}return false}
+function move(){
+ if(blocked()) return;
+ if(state.dir===0) state.y--; if(state.dir===1) state.x++; if(state.dir===2) state.y++; if(state.dir===3) state.x--;
+ state.steps++; state.visited[key()]=true; ensureRoom(); render();
+}
+function enemyTurn(){
+ if(!state.enemy)return;
+ let alive=state.party.filter(m=>m.hp>0);
+ if(!alive.length)return;
+ let t=alive[Math.floor(Math.random()*alive.length)];
+ let dmg=Math.max(1,state.enemy.atk-Math.floor(t.def/2)+Math.floor(Math.random()*3));
+ t.hp=Math.max(0,t.hp-dmg); flash("#8a201a88");
+ log(`${state.enemy.name} hits ${t.name} for ${dmg}.`);
+ if(t.hp===0) log(`${t.name} falls unconscious.`);
+ if(state.party.every(m=>m.hp<=0)){log("The party has fallen. Load a save or begin anew.");}
+}
+function attack(){
+ if(!state.enemy){log("You swing at shadows.");return}
+ let attackers=state.party.filter(m=>m.hp>0);
+ let dmg=0;
+ attackers.forEach(m=>{
+   let hit=Math.max(1,m.atk-2+Math.floor(Math.random()*5));
+   dmg+=hit;
+ });
+ state.enemy.hp-=dmg; flash("#d8b96855");
+ log(`The party deals ${dmg} damage.`);
+ if(state.enemy.hp<=0){
+   let e=state.enemy;
+   let g=e.gold[0]+Math.floor(Math.random()*(e.gold[1]-e.gold[0]+1));
+   state.gold+=g; state.enemy=null; state.rooms[key()].cleared=true;
+   if(Math.random()<.35){let loot=["Iron Ring","Blue Tonic","Old Map Scrap","Moonstone","Leather Bracers"][Math.floor(Math.random()*5)];state.inv.push(loot);log(`Victory. Found ${g} gold and ${loot}.`)}
+   else log(`Victory. Found ${g} gold.`);
+ } else enemyTurn();
+ render();
+}
+function searchRoom(){
+ if(state.enemy){log("Hard to search while something is trying to kill you.");return}
+ let r=state.rooms[key()]||seededRoom(state.x,state.y);
+ if(r.searched){log("You find nothing else here.");return}
+ r.searched=true; state.rooms[key()]=r;
+ if(r.loot){
+  let g=5+Math.floor(Math.random()*17); state.gold+=g;
+  let loot=["Silver Vial","Carved Idol","Scroll Fragment","Fine Dagger","Amber Bead"][Math.floor(Math.random()*5)];
+  state.inv.push(loot); log(`Hidden cache: ${g} gold and ${loot}.`);
+ } else log("Dust, stone, and nothing worth carrying.");
+ render();
+}
+function rest(){
+ if(state.enemy){log("You cannot rest during combat.");return}
+ state.party.forEach(m=>{m.hp=Math.min(m.maxhp,m.hp+Math.ceil(m.maxhp*.35));m.mp=Math.min(m.maxmp,m.mp+Math.ceil(m.maxmp*.35))});
+ log("The party rests briefly. Distant sounds echo in the halls.");
+ if(Math.random()<.25){state.rooms[key()].enemy=true;ensureRoom()}
+ render();
+}
+function save(){localStorage.setItem("veyra-save",JSON.stringify(state));log("Game saved on this device.")}
+function load(){
+ let s=localStorage.getItem("veyra-save");
+ if(!s){log("No saved game found.");return}
+ state=JSON.parse(s);log("Saved game restored.");render();
+}
+function flash(c){let f=$("#flash");f.style.background=c;setTimeout(()=>f.style.background="#0000",110)}
+$("#forward").onclick=move;
+$("#turnL").onclick=()=>{if(!blocked()){state.dir=(state.dir+3)%4;render()}};
+$("#turnR").onclick=()=>{if(!blocked()){state.dir=(state.dir+1)%4;render()}};
+$("#attack").onclick=attack; $("#search").onclick=searchRoom; $("#rest").onclick=rest;
+$("#save").onclick=save; $("#load").onclick=load;
+$("#newgame").onclick=()=>{$("#startModal").classList.remove("hidden")};
+$("#begin").onclick=()=>{
+ state=newState(); $("#startModal").classList.add("hidden"); ensureRoom(); log("You descend beneath Veyra. The gate seals behind you.");render();
+};
+</script>
+
+<div id="installTip" style="display:none;position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:50;background:#17130ef2;border:1px solid #76623c;border-radius:10px;padding:12px;color:#e7d7ad;box-shadow:0 8px 30px #0009;font:14px Georgia,serif">
+  <b>Install on iPhone:</b> open this game in Safari, tap <b>Share</b>, then <b>Add to Home Screen</b>.
+  <button id="hideInstallTip" style="float:right;margin-left:10px;padding:5px 9px;font-size:12px">OK</button>
+</div>
+
+<script>
+(function(){
+  if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+    navigator.serviceWorker.register("./sw.js").catch(()=>{});
+  }
+  const standalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone;
+  if (!standalone && /iPhone|iPad|iPod/.test(navigator.userAgent)) {
+    setTimeout(()=>{ const t=document.getElementById("installTip"); if(t) t.style.display="block"; },1200);
+  }
+  const b=document.getElementById("hideInstallTip");
+  if(b) b.onclick=()=>document.getElementById("installTip").style.display="none";
+})();
+</script>
+</body>
+</html>
