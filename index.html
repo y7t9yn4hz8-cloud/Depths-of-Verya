@@ -73,7 +73,7 @@ input,select{width:100%;margin-top:3px;background:#0b0907;color:var(--text);bord
 .hidden{display:none}
 .enemy{position:absolute;left:50%;top:46%;transform:translate(-50%,-50%);font-size:74px;filter:drop-shadow(0 12px 9px #000);text-align:center}
 .enemyname{font-size:13px;background:#080706cc;border:1px solid #5f4d31;padding:3px 7px;border-radius:5px}
-.landmark{position:absolute;left:50%;top:48%;transform:translate(-50%,-50%);font-size:86px;filter:drop-shadow(0 12px 14px #000);text-align:center}
+.scene-landmark{position:absolute;left:50%;top:48%;transform:translate(-50%,-50%);font-size:86px;filter:drop-shadow(0 12px 14px #000);text-align:center}
 .badge{display:inline-block;border:1px solid #5f4e31;border-radius:20px;padding:2px 7px;margin-left:4px;color:var(--muted)}
 
 .mapmodal{position:absolute;inset:0;background:#000e;display:flex;align-items:center;justify-content:center;z-index:20;padding:14px}
@@ -94,7 +94,7 @@ input,select{width:100%;margin-top:3px;background:#0b0907;color:var(--text);bord
 <body>
 <div id="app">
   <div class="topbar">
-    <div><div class="title">DEPTHS OF VEYRA</div><div class="small">Prototype 0.5 · the Fountain Level</div></div>
+    <div><div class="title">DEPTHS OF VEYRA</div><div class="small">Prototype 0.5.2 · the Fountain Level</div></div>
     <div class="small" id="location">Floor 1 · loading</div>
   </div>
   <div class="main">
@@ -105,7 +105,7 @@ input,select{width:100%;margin-top:3px;background:#0b0907;color:var(--text);bord
         <div class="door" id="door"></div>
         <div class="torch t1">🔥</div><div class="torch t2">🔥</div>
         <div class="enemy hidden" id="enemySprite"><div id="enemyIcon">👹</div><div class="enemyname" id="enemyName">Ghoul</div></div>
-        <div class="landmark hidden" id="landmarkSprite"></div>
+        <div class="scene-landmark hidden" id="landmarkSprite"></div>
         <div class="combat-flash" id="flash"></div>
         <div class="caption" id="caption">The air smells of cold stone and old iron.</div>
       </div>
@@ -193,7 +193,7 @@ function newState(){
  return {
   mapVersion:MAP_VERSION,floor:1,x:entrance[0],y:entrance[1],dir:0,steps:0,gold:12,
   party:[makeMember($("#leaderName").value||"Alden",$("#leaderClass").value),makeMember($("#compName").value||"Mira",$("#compClass").value)],
-  inv:["Rusty Key","2× Ration"],visited:{[`1:${entrance[0]},${entrance[1]}`]:true},openedDoors:{},enemy:null,rooms:{}
+  inv:["Rusty Key","2× Ration"],visited:{[`1:${entrance[0]},${entrance[1]}`]:true},openedDoors:{},fountainUsed:false,expeditions:1,enemy:null,rooms:{}
  };
 }
 function key(){return state.x+","+state.y}
@@ -211,7 +211,9 @@ function doorAhead(){
 }
 function stairsObject(){return floorMap.objects.find(o=>o.type==="stairs_down")}
 function fountainObject(){return floorMap.objects.find(o=>o.type==="fountain")}
+function entranceObject(){return floorMap.objects.find(o=>o.type==="entrance")}
 function atStairs(x=state.x,y=state.y){const s=stairsObject();return !!s&&x===s.tile[0]&&y===s.tile[1]}
+function atEntrance(x=state.x,y=state.y){const e=entranceObject();return !!e&&x===e.tile[0]&&y===e.tile[1]}
 function atFountain(x=state.x,y=state.y){
  const f=fountainObject();
  return !!f&&f.interaction_tiles.some(tile=>x===tile[0]&&y===tile[1]);
@@ -235,7 +237,7 @@ function ensureRoom(){
  let k=key();
  if(!state.rooms[k]) state.rooms[k]=seededRoom(state.x,state.y);
  let r=state.rooms[k];
- if(inFountainSafeZone()){
+ if(inFountainSafeZone()||atStairs()){
    r.enemy=false;
    state.enemy=null;
    return;
@@ -297,11 +299,12 @@ function render(){
  const closedDoor=door&&!state.openedDoors[door.id];
  const fountainHere=atFountain();
  const stairsHere=atStairs();
+ const entranceHere=atEntrance();
  $("#door").classList.toggle("hidden",!closedDoor);
  $("#landmarkSprite").classList.toggle("hidden",!fountainHere&&!stairsHere);
  $("#landmarkSprite").textContent=fountainHere?"⛲":stairsHere?"⤵":"";
- $("#openDoor").textContent=fountainHere?"DRINK":stairsHere?"DESCEND":"OPEN";
- $("#caption").textContent=state.enemy?`${state.enemy.name}: ${state.enemy.hp}/${state.enemy.maxhp} HP`:fountainHere?"The Fountain of Renewal fills the chamber with quiet blue light.":stairsHere?"Stone steps spiral downward into the darkness of Floor 02.":closedDoor?"A closed door blocks the passage ahead.":inFountainSafeZone()?"The fountain's gentle murmur makes this chamber feel safe.":r.desc;
+ $("#openDoor").textContent=fountainHere?(state.fountainUsed?"EMPTY":"DRINK"):stairsHere?"DESCEND":entranceHere?"EXIT":"OPEN";
+ $("#caption").textContent=state.enemy?`${state.enemy.name}: ${state.enemy.hp}/${state.enemy.maxhp} HP`:fountainHere?(state.fountainUsed?"The fountain is still. Its power will return after your next trip to the surface.":"The Fountain of Renewal fills the chamber with quiet blue light."):stairsHere?"Stone steps spiral downward into the darkness of Floor 02.":entranceHere?"The dungeon entrance leads back to the safety of the surface.":closedDoor?"A closed door blocks the passage ahead.":inFountainSafeZone()?"The fountain's gentle murmur makes this chamber feel safe.":r.desc;
  if(state.enemy){
    $("#enemySprite").classList.remove("hidden");
    $("#enemyIcon").textContent=state.enemy.icon; $("#enemyName").textContent=state.enemy.name;
@@ -314,7 +317,12 @@ function blocked(){if(state.enemy){log("The enemy blocks your way.");return true
 function interact(){
  if(blocked())return;
  if(atFountain()){
+  if(state.fountainUsed){
+   log("The fountain has already been used this expedition. Return to the surface to renew it.");
+   return;
+  }
   state.party.forEach(m=>{m.hp=m.maxhp;m.mp=m.maxmp});
+  state.fountainUsed=true;
   log("You drink from the Fountain of Renewal. The party is fully restored.");
   render();
   return;
@@ -325,6 +333,14 @@ function interact(){
    log("Floor 01 complete: you discovered the stairs to Floor 02.");
    save();
   }else log("The way to Floor 02 is open, but that floor has not been built yet.");
+  render();
+  return;
+ }
+ if(atEntrance()){
+  state.fountainUsed=false;
+  state.expeditions=(state.expeditions||1)+1;
+  log("You return to the surface. The Fountain of Renewal is restored for your next expedition.");
+  save();
   render();
   return;
  }
@@ -398,7 +414,7 @@ function rest(){
  if(state.enemy){log("You cannot rest during combat.");return}
  state.party.forEach(m=>{m.hp=Math.min(m.maxhp,m.hp+Math.ceil(m.maxhp*.35));m.mp=Math.min(m.maxmp,m.mp+Math.ceil(m.maxmp*.35))});
  log("The party rests briefly. Distant sounds echo in the halls.");
- if(!inFountainSafeZone()&&Math.random()<.25){state.rooms[key()].enemy=true;ensureRoom()}
+ if(!inFountainSafeZone()&&!atStairs()&&Math.random()<.25){state.rooms[key()].enemy=true;ensureRoom()}
  render();
 }
 function save(){localStorage.setItem(SAVE_KEY,JSON.stringify(state));log("Game saved on this device.")}
@@ -411,6 +427,7 @@ function load(){
  if(!state.visited) state.visited={};
  if(!state.openedDoors)state.openedDoors={};
  state.visited[visitKey()]=true;
+ ensureRoom();
  log("Saved game restored.");render();
 }
 function flash(c){let f=$("#flash");f.style.background=c;setTimeout(()=>f.style.background="#0000",110)}
