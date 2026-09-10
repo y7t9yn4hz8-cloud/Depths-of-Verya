@@ -1,0 +1,983 @@
+{
+  "format": "grid-dungeon-v1",
+  "name": "Floor 01 - The Fountain Level",
+  "source": "DungeonMapDoodle.dmd",
+  "width": 40,
+  "height": 40,
+  "source_tile_pixels": 20,
+  "coordinate_origin": "top-left",
+  "legend": {
+    "#": "walkable floor",
+    ".": "solid wall/void"
+  },
+  "walkable_tile_count": 705,
+  "rows": [
+    "........................................",
+    ".######..####.####.###...#..##.##.####..",
+    ".######..#..#.####..#..#.#..#...#.####..",
+    ".######..#..#.########################..",
+    ".#################.........####...####..",
+    ".######.#.......#.....####.####.....#...",
+    "..#.....##....###..############...####..",
+    "..#.....##.....##..#..################..",
+    "..#...#..#........##..####..#...........",
+    ".######..#..................#...........",
+    "......#..#########..##..#...###########.",
+    "......#...#......#..#####...#...#.....#.",
+    "..#####..##......#..##.....##.#######.#.",
+    ".##...#..##......########..##.........#.",
+    ".#....#..........#.#....##.############.",
+    ".#....#.....####...#.....#.##......#....",
+    ".#....#.##..####...#####...........#....",
+    ".#....#.########.......###.........#....",
+    ".##...#...#.####...##....###....######..",
+    ".######...#...#....##......#....######..",
+    "......#.####..#....##..######.......#...",
+    "......#.####..#######..######..##.####..",
+    "...#########.......##..######..##.####..",
+    "...#..#.####..####.##############.####..",
+    "...#..#.......#..#.....######..#######..",
+    "...#..#.......#..#.....######.....####..",
+    "...#..#.#######..####.............####..",
+    "...#..#.#..#.....#########..............",
+    "...#..#.#..#..........#....####.....###.",
+    ".####.#.#..#..######..#....####.....###.",
+    ".####.######..######.......####.......#.",
+    ".####.#.......#################.####..#.",
+    ".####.##############.......####.#######.",
+    ".####..#......######.......#########....",
+    ".####..#......######..####......####....",
+    "..#....#..............#..#........#.....",
+    "..#....#.#######.###..#..#......####....",
+    "..#....#.###...#..#...#.############....",
+    "..#....#####...########.................",
+    "..#....................................."
+  ],
+  "objects": [
+    {
+      "id": "dungeon_entrance",
+      "type": "entrance",
+      "tile": [
+        2,
+        39
+      ],
+      "edge": "south",
+      "facing_into_dungeon": "north"
+    },
+    {
+      "id": "fountain_01",
+      "type": "fountain",
+      "tile_center": [
+        3.5,
+        3.5
+      ],
+      "blocks_movement": false,
+      "notes": "Planned fountain in the large upper-left chamber."
+    }
+  ],
+  "door_count": 53,
+  "doors": [
+    {
+      "id": "door_01",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          6,
+          4
+        ],
+        [
+          7,
+          4
+        ]
+      ],
+      "leaf_orientation": "north-south",
+      "initial_state": "closed",
+      "locked": false
+    },
+    {
+      "id": "door_02",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          2,
+          5
+        ],
+        [
+          2,
+          6
+        ]
+      ],
+      "leaf_orientation": "east-west",
+      "initial_state": "closed",
+      "locked": false
+    },
+    {
+      "id": "door_03",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          8,
+          4
+        ],
+        [
+          9,
+          4
+        ]
+      ],
+      "leaf_orientation": "north-south",
+      "initial_state": "closed",
+      "locked": false
+    },
+    {
+      "id": "door_04",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          12,
+          4
+        ],
+        [
+          13,
+          4
+        ]
+      ],
+      "leaf_orientation": "north-south",
+      "initial_state": "closed",
+      "locked": false
+    },
+    {
+      "id": "door_05",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          16,
+          4
+        ],
+        [
+          16,
+          5
+        ]
+      ],
+      "leaf_orientation": "east-west",
+      "initial_state": "closed",
+      "locked": false
+    },
+    {
+      "id": "door_06",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          20,
+          2
+        ],
+        [
+          20,
+          3
+        ]
+      ],
+      "leaf_orientation": "east-west",
+      "initial_state": "closed",
+      "locked": false
+    },
+    {
+      "id": "door_07",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          23,
+          2
+        ],
+        [
+          23,
+          3
+        ]
+      ],
+      "leaf_orientation": "east-west",
+      "initial_state": "closed",
+      "locked": false
+    },
+    {
+      "id": "door_08",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          25,
+          2
+        ],
+        [
+          25,
+          3
+        ]
+      ],
+      "leaf_orientation": "east-west",
+      "initial_state": "closed",
+      "locked": false
+    },
+    {
+      "id": "door_09",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          28,
+          2
+        ],
+        [
+          28,
+          3
+        ]
+      ],
+      "leaf_orientation": "east-west",
+      "initial_state": "closed",
+      "locked": false
+    },
+    {
+      "id": "door_10",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          32,
+          2
+        ],
+        [
+          32,
+          3
+        ]
+      ],
+      "leaf_orientation": "east-west",
+      "initial_state": "closed",
+      "locked": false
+    },
+    {
+      "id": "door_11",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          33,
+          3
+        ],
+        [
+          34,
+          3
+        ]
+      ],
+      "leaf_orientation": "north-south",
+      "initial_state": "closed",
+      "locked": false
+    },
+    {
+      "id": "door_12",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          36,
+          4
+        ],
+        [
+          36,
+          5
+        ]
+      ],
+      "leaf_orientation": "east-west",
+      "initial_state": "closed",
+      "locked": false
+    },
+    {
+      "id": "door_13",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          21,
+          6
+        ],
+        [
+          22,
+          6
+        ]
+      ],
+      "leaf_orientation": "north-south",
+      "initial_state": "closed",
+      "locked": false
+    },
+    {
+      "id": "door_14",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          28,
+          9
+        ],
+        [
+          28,
+          10
+        ]
+      ],
+      "leaf_orientation": "east-west",
+      "initial_state": "closed",
+      "locked": false
+    },
+    {
+      "id": "door_15",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          10,
+          10
+        ],
+        [
+          10,
+          11
+        ]
+      ],
+      "leaf_orientation": "east-west",
+      "initial_state": "closed",
+      "locked": false
+    },
+    {
+      "id": "door_16",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          24,
+          10
+        ],
+        [
+          24,
+          11
+        ]
+      ],
+      "leaf_orientation": "east-west",
+      "initial_state": "closed",
+      "locked": false
+    },
+    {
+      "id": "door_17",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          32,
+          10
+        ],
+        [
+          32,
+          11
+        ]
+      ],
+      "leaf_orientation": "east-west",
+      "initial_state": "closed",
+      "locked": false
+    },
+    {
+      "id": "door_18",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          5,
+          12
+        ],
+        [
+          6,
+          12
+        ]
+      ],
+      "leaf_orientation": "north-south",
+      "initial_state": "closed",
+      "locked": false
+    },
+    {
+      "id": "door_19",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          17,
+          13
+        ],
+        [
+          18,
+          13
+        ]
+      ],
+      "leaf_orientation": "north-south",
+      "initial_state": "closed",
+      "locked": false
+    },
+    {
+      "id": "door_20",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          24,
+          13
+        ],
+        [
+          24,
+          14
+        ]
+      ],
+      "leaf_orientation": "east-west",
+      "initial_state": "closed",
+      "locked": false
+    },
+    {
+      "id": "door_21",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          35,
+          14
+        ],
+        [
+          35,
+          15
+        ]
+      ],
+      "leaf_orientation": "east-west",
+      "initial_state": "closed",
+      "locked": false
+    },
+    {
+      "id": "door_22",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          9,
+          17
+        ],
+        [
+          10,
+          17
+        ]
+      ],
+      "leaf_orientation": "north-south",
+      "initial_state": "closed",
+      "locked": false
+    },
+    {
+      "id": "door_23",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          14,
+          18
+        ],
+        [
+          14,
+          19
+        ]
+      ],
+      "leaf_orientation": "east-west",
+      "initial_state": "closed",
+      "locked": false
+    },
+    {
+      "id": "door_24",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          35,
+          17
+        ],
+        [
+          35,
+          18
+        ]
+      ],
+      "leaf_orientation": "east-west",
+      "initial_state": "closed",
+      "locked": false
+    },
+    {
+      "id": "door_25",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          36,
+          20
+        ],
+        [
+          36,
+          21
+        ]
+      ],
+      "leaf_orientation": "east-west",
+      "initial_state": "closed",
+      "locked": false
+    },
+    {
+      "id": "door_26",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          3,
+          28
+        ],
+        [
+          3,
+          29
+        ]
+      ],
+      "leaf_orientation": "east-west",
+      "initial_state": "closed",
+      "locked": false
+    },
+    {
+      "id": "door_27",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          38,
+          30
+        ],
+        [
+          38,
+          31
+        ]
+      ],
+      "leaf_orientation": "east-west",
+      "initial_state": "closed",
+      "locked": false
+    },
+    {
+      "id": "door_28",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          6,
+          31
+        ],
+        [
+          6,
+          32
+        ]
+      ],
+      "leaf_orientation": "east-west",
+      "initial_state": "closed",
+      "locked": false
+    },
+    {
+      "id": "door_29",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          18,
+          37
+        ],
+        [
+          18,
+          38
+        ]
+      ],
+      "leaf_orientation": "east-west",
+      "initial_state": "closed",
+      "locked": false
+    },
+    {
+      "id": "door_30",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          22,
+          37
+        ],
+        [
+          22,
+          38
+        ]
+      ],
+      "leaf_orientation": "east-west",
+      "initial_state": "closed",
+      "locked": false
+    },
+    {
+      "id": "door_31",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          24,
+          37
+        ],
+        [
+          25,
+          37
+        ]
+      ],
+      "leaf_orientation": "north-south",
+      "initial_state": "closed",
+      "locked": false
+    },
+    {
+      "id": "door_32",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          6,
+          8
+        ],
+        [
+          6,
+          9
+        ]
+      ],
+      "leaf_orientation": "east-west",
+      "initial_state": "closed",
+      "locked": false
+    },
+    {
+      "id": "door_33",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          31,
+          12
+        ],
+        [
+          32,
+          12
+        ]
+      ],
+      "leaf_orientation": "north-south",
+      "initial_state": "closed",
+      "locked": false
+    },
+    {
+      "id": "door_34",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          34,
+          12
+        ],
+        [
+          35,
+          12
+        ]
+      ],
+      "leaf_orientation": "north-south",
+      "initial_state": "closed",
+      "locked": false
+    },
+    {
+      "id": "door_35",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          11,
+          17
+        ],
+        [
+          12,
+          17
+        ]
+      ],
+      "leaf_orientation": "north-south",
+      "initial_state": "closed",
+      "locked": false
+    },
+    {
+      "id": "door_36",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          5,
+          19
+        ],
+        [
+          6,
+          19
+        ]
+      ],
+      "leaf_orientation": "north-south",
+      "initial_state": "closed",
+      "locked": false
+    },
+    {
+      "id": "door_37",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          27,
+          19
+        ],
+        [
+          27,
+          20
+        ]
+      ],
+      "leaf_orientation": "east-west",
+      "initial_state": "closed",
+      "locked": false
+    },
+    {
+      "id": "door_38",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          6,
+          22
+        ],
+        [
+          7,
+          22
+        ]
+      ],
+      "leaf_orientation": "north-south",
+      "initial_state": "closed",
+      "locked": false
+    },
+    {
+      "id": "door_39",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          22,
+          23
+        ],
+        [
+          23,
+          23
+        ]
+      ],
+      "leaf_orientation": "north-south",
+      "initial_state": "closed",
+      "locked": false
+    },
+    {
+      "id": "door_40",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          28,
+          23
+        ],
+        [
+          29,
+          23
+        ]
+      ],
+      "leaf_orientation": "north-south",
+      "initial_state": "closed",
+      "locked": false
+    },
+    {
+      "id": "door_41",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          30,
+          23
+        ],
+        [
+          31,
+          23
+        ]
+      ],
+      "leaf_orientation": "north-south",
+      "initial_state": "closed",
+      "locked": false
+    },
+    {
+      "id": "door_42",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          33,
+          24
+        ],
+        [
+          34,
+          24
+        ]
+      ],
+      "leaf_orientation": "north-south",
+      "initial_state": "closed",
+      "locked": false
+    },
+    {
+      "id": "door_43",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          11,
+          26
+        ],
+        [
+          12,
+          26
+        ]
+      ],
+      "leaf_orientation": "north-south",
+      "initial_state": "closed",
+      "locked": false
+    },
+    {
+      "id": "door_44",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          22,
+          27
+        ],
+        [
+          22,
+          28
+        ]
+      ],
+      "leaf_orientation": "east-west",
+      "initial_state": "closed",
+      "locked": false
+    },
+    {
+      "id": "door_45",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          6,
+          30
+        ],
+        [
+          7,
+          30
+        ]
+      ],
+      "leaf_orientation": "north-south",
+      "initial_state": "closed",
+      "locked": false
+    },
+    {
+      "id": "door_46",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          19,
+          31
+        ],
+        [
+          20,
+          31
+        ]
+      ],
+      "leaf_orientation": "north-south",
+      "initial_state": "closed",
+      "locked": false
+    },
+    {
+      "id": "door_47",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          26,
+          31
+        ],
+        [
+          27,
+          31
+        ]
+      ],
+      "leaf_orientation": "north-south",
+      "initial_state": "closed",
+      "locked": false
+    },
+    {
+      "id": "door_48",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          13,
+          32
+        ],
+        [
+          14,
+          32
+        ]
+      ],
+      "leaf_orientation": "north-south",
+      "initial_state": "closed",
+      "locked": false
+    },
+    {
+      "id": "door_49",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          35,
+          32
+        ],
+        [
+          36,
+          32
+        ]
+      ],
+      "leaf_orientation": "north-south",
+      "initial_state": "closed",
+      "locked": false
+    },
+    {
+      "id": "door_50",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          31,
+          33
+        ],
+        [
+          32,
+          33
+        ]
+      ],
+      "leaf_orientation": "north-south",
+      "initial_state": "closed",
+      "locked": false
+    },
+    {
+      "id": "door_51",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          34,
+          34
+        ],
+        [
+          34,
+          35
+        ]
+      ],
+      "leaf_orientation": "east-west",
+      "initial_state": "closed",
+      "locked": false
+    },
+    {
+      "id": "door_52",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          19,
+          13
+        ],
+        [
+          19,
+          14
+        ]
+      ],
+      "leaf_orientation": "east-west",
+      "initial_state": "closed",
+      "locked": false
+    },
+    {
+      "id": "door_53",
+      "type": "standard_door",
+      "between_tiles": [
+        [
+          18,
+          21
+        ],
+        [
+          19,
+          21
+        ]
+      ],
+      "leaf_orientation": "north-south",
+      "initial_state": "closed",
+      "locked": false
+    }
+  ],
+  "ignored_source_stamps": 61
+}
