@@ -47,6 +47,7 @@ box-shadow:0 0 70px #000 inset,0 0 30px #000}
 .controls{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;padding:8px}
 button{appearance:none;border:1px solid #7f6b42;background:linear-gradient(#31291a,#17130e);color:var(--text);border-radius:8px;padding:11px 6px;font:700 15px Georgia,serif;box-shadow:0 2px 0 #000}
 button:active{transform:translateY(1px);background:#0f0d09}
+button:disabled{opacity:.55;transform:none}
 button.secondary{font-size:12px;padding:8px}
 button.good{border-color:#52764b}
 button.danger{border-color:#844c43}
@@ -79,7 +80,7 @@ input,select{width:100%;margin-top:3px;background:#0b0907;color:var(--text);bord
 .maphead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
 .maphead h2{margin:0;color:var(--accent);font-size:19px}
 .mapwrap{width:100%;max-height:62vh;overflow:auto;border:1px solid #4d422d;background:#000;padding:6px;border-radius:6px}
-#dungeonMap{display:grid;grid-template-columns:repeat(41,14px);grid-auto-rows:14px;width:max-content;background:#000}
+#dungeonMap{display:grid;grid-template-columns:repeat(40,14px);grid-auto-rows:14px;width:max-content;background:#000}
 .maptile{width:14px;height:14px;background:#000;border:1px solid #050505}
 .maptile.seen{background:#4d493e;border-color:#66604f}
 .maptile.current{background:#d8b968;color:#111;font-size:10px;line-height:12px;text-align:center;font-weight:bold;border-color:#f0d98e}
@@ -91,8 +92,8 @@ input,select{width:100%;margin-top:3px;background:#0b0907;color:var(--text);bord
 <body>
 <div id="app">
   <div class="topbar">
-    <div><div class="title">DEPTHS OF VEYRA</div><div class="small">Prototype 0.3 · explored dungeon map</div></div>
-    <div class="small" id="location">Floor 1 · 0,0</div>
+    <div><div class="title">DEPTHS OF VEYRA</div><div class="small">Prototype 0.4 · the Fountain Level</div></div>
+    <div class="small" id="location">Floor 1 · loading</div>
   </div>
   <div class="main">
     <section class="card view">
@@ -105,10 +106,11 @@ input,select{width:100%;margin-top:3px;background:#0b0907;color:var(--text);bord
         <div class="combat-flash" id="flash"></div>
         <div class="caption" id="caption">The air smells of cold stone and old iron.</div>
       </div>
-      <div class="controls">
+      <div class="controls" style="grid-template-columns:repeat(6,1fr)">
         <button id="turnL">↶</button>
         <button id="forward">▲</button>
         <button id="turnR">↷</button>
+        <button id="openDoor" class="good">OPEN</button>
         <button id="attack" class="danger">⚔</button>
         <button id="search" class="good">✦</button>
       </div>
@@ -138,22 +140,22 @@ input,select{width:100%;margin-top:3px;background:#0b0907;color:var(--text);bord
    <button class="secondary" id="closeMap">CLOSE</button>
   </div>
   <div class="mapwrap"><div id="dungeonMap" aria-label="Explored dungeon map"></div></div>
-  <div class="maplegend">Black = unexplored · gray = explored · gold arrow = your position and facing direction. Each floor is 41 × 41 spaces.</div>
+  <div class="maplegend">Black = unexplored or solid rock · gray = explored floor · gold arrow = your position and facing direction. Floor 01 is 40 × 40 tiles.</div>
  </div>
 </div>
 
 <div class="modal" id="startModal">
  <div class="modalbox">
   <h1>Depths of Veyra</h1>
-  <p>A small original dungeon crawler inspired by the feel of late-90s first-person party RPGs. This prototype uses original names, code and presentation.</p>
+  <p>Enter the hand-drawn Fountain Level: a real 40 × 40 dungeon of rooms, corridors and closed doors.</p>
   <div class="grid2">
     <label>Leader name<input id="leaderName" value="Alden" maxlength="14"></label>
     <label>Leader class<select id="leaderClass"><option>Warrior</option><option>Ranger</option><option>Mage</option><option>Cleric</option></select></label>
     <label>Companion name<input id="compName" value="Mira" maxlength="14"></label>
     <label>Companion class<select id="compClass"><option>Cleric</option><option>Warrior</option><option>Ranger</option><option>Mage</option></select></label>
   </div>
-  <p><b>Controls:</b> turn left/right, move forward, attack enemies, and search rooms for loot. The dungeon is generated as you explore and your save is stored on this device.</p>
-  <button id="begin" style="width:100%;margin-top:4px">ENTER THE DEPTHS</button>
+  <p><b>Controls:</b> turn, move forward, open doors, attack enemies, and search for loot. Your exploration and opened doors are saved on this device.</p>
+  <button id="begin" disabled style="width:100%;margin-top:4px">LOADING FLOOR…</button>
  </div>
 </div>
 
@@ -172,7 +174,11 @@ const enemyTypes=[
  {name:"Ash Goblin",icon:"👺",hp:18,atk:6,gold:[6,14]},
  {name:"Crypt Shade",icon:"👻",hp:24,atk:7,gold:[9,18]}
 ];
-const MAP_HALF=20;
+const MAP_FILE="Floor_01_Tilemap_53_Doors.json";
+const MAP_VERSION="floor-01-53-doors";
+const SAVE_KEY="veyra-save-v0.4";
+let floorMap=null;
+let doorByEdge=new Map();
 let state=null;
 
 function makeMember(name,cls){
@@ -180,14 +186,26 @@ function makeMember(name,cls){
  return {name,cls,level:1,xp:0,hp:c.hp,maxhp:c.hp,mp:c.mp,maxmp:c.mp,atk:c.atk,def:c.def};
 }
 function newState(){
+ const entrance=floorMap.objects.find(o=>o.type==="entrance")?.tile||[2,39];
  return {
-  floor:1,x:0,y:0,dir:0,steps:0,gold:12,
+  mapVersion:MAP_VERSION,floor:1,x:entrance[0],y:entrance[1],dir:0,steps:0,gold:12,
   party:[makeMember($("#leaderName").value||"Alden",$("#leaderClass").value),makeMember($("#compName").value||"Mira",$("#compClass").value)],
-  inv:["Rusty Key","2× Ration"],visited:{"1:0,0":true},enemy:null,rooms:{}
+  inv:["Rusty Key","2× Ration"],visited:{[`1:${entrance[0]},${entrance[1]}`]:true},openedDoors:{},enemy:null,rooms:{}
  };
 }
 function key(){return state.x+","+state.y}
 function visitKey(x=state.x,y=state.y,f=state.floor){return f+":"+x+","+y}
+function edgeKey(ax,ay,bx,by){return [[ax,ay],[bx,by]].sort((a,b)=>a[0]-b[0]||a[1]-b[1]).map(p=>p.join(",")).join("|")}
+function walkable(x,y){return !!floorMap&&y>=0&&y<floorMap.height&&x>=0&&x<floorMap.width&&floorMap.rows[y][x]==="#"}
+function tileAhead(){
+ let x=state.x,y=state.y;
+ if(state.dir===0)y--;if(state.dir===1)x++;if(state.dir===2)y++;if(state.dir===3)x--;
+ return {x,y};
+}
+function doorAhead(){
+ const next=tileAhead();
+ return doorByEdge.get(edgeKey(state.x,state.y,next.x,next.y))||null;
+}
 function seededRoom(x,y){
  let n=Math.abs((x*73856093)^(y*19349663)^(state.floor*83492791));
  return {enemy:n%5===0,loot:n%7===0,desc:[
@@ -204,7 +222,9 @@ function ensureRoom(){
  if(!state.rooms[k]) state.rooms[k]=seededRoom(state.x,state.y);
  let r=state.rooms[k];
  if(r.enemy && !r.cleared && !state.enemy){
-   let idx=Math.min(enemyTypes.length-1, Math.floor((Math.abs(state.x)+Math.abs(state.y)+state.floor)/3));
+   const entrance=floorMap.objects.find(o=>o.type==="entrance")?.tile||[2,39];
+   const distance=Math.abs(state.x-entrance[0])+Math.abs(state.y-entrance[1]);
+   let idx=Math.min(enemyTypes.length-1,Math.floor(distance/12));
    let e=enemyTypes[idx];
    state.enemy={...e,hp:e.hp,maxhp:e.hp};
    log("A "+e.name+" emerges from the darkness.");
@@ -214,13 +234,14 @@ function ensureRoom(){
 function renderMap(){
  const map=$("#dungeonMap");
  map.innerHTML="";
+ map.style.gridTemplateColumns=`repeat(${floorMap.width},14px)`;
  $("#mapFloor").textContent=`Floor ${state.floor} · ${state.x},${state.y}`;
  const arrows=["▲","▶","▼","◀"];
- for(let y=-MAP_HALF;y<=MAP_HALF;y++){
-  for(let x=-MAP_HALF;x<=MAP_HALF;x++){
+ for(let y=0;y<floorMap.height;y++){
+  for(let x=0;x<floorMap.width;x++){
    const d=document.createElement("div");
    d.className="maptile";
-   if(state.visited && (state.visited[visitKey(x,y)] || state.visited[x+","+y])) d.classList.add("seen");
+   if(walkable(x,y)&&state.visited&&state.visited[visitKey(x,y)]) d.classList.add("seen");
    if(x===state.x && y===state.y){
     d.classList.add("current");
     d.textContent=arrows[state.dir];
@@ -230,7 +251,7 @@ function renderMap(){
  }
  requestAnimationFrame(()=>{
   const wrap=map.parentElement;
-  const cx=(state.x+MAP_HALF)*14, cy=(state.y+MAP_HALF)*14;
+  const cx=state.x*14,cy=state.y*14;
   wrap.scrollLeft=Math.max(0,cx-wrap.clientWidth/2);
   wrap.scrollTop=Math.max(0,cy-wrap.clientHeight/2);
  });
@@ -247,7 +268,10 @@ function render(){
   </div>`).join("");
  $("#inventory").innerHTML=state.inv.slice(0,8).map(i=>`<div class="inv">${i}</div>`).join("") || `<div class="inv">Empty</div>`;
  let r=state.rooms[key()]||seededRoom(state.x,state.y);
- $("#caption").textContent=state.enemy?`${state.enemy.name}: ${state.enemy.hp}/${state.enemy.maxhp} HP`:r.desc;
+ const door=doorAhead();
+ const closedDoor=door&&!state.openedDoors[door.id];
+ $("#door").classList.toggle("hidden",!closedDoor);
+ $("#caption").textContent=state.enemy?`${state.enemy.name}: ${state.enemy.hp}/${state.enemy.maxhp} HP`:closedDoor?"A closed door blocks the passage ahead.":r.desc;
  if(state.enemy){
    $("#enemySprite").classList.remove("hidden");
    $("#enemyIcon").textContent=state.enemy.icon; $("#enemyName").textContent=state.enemy.name;
@@ -257,15 +281,30 @@ function log(t){
  let d=document.createElement("div"); d.textContent="• "+t; $("#log").appendChild(d); $("#log").scrollTop=$("#log").scrollHeight;
 }
 function blocked(){if(state.enemy){log("The enemy blocks your way.");return true}return false}
+function openDoor(){
+ if(blocked())return;
+ const door=doorAhead();
+ if(!door){log("There is no door ahead.");return}
+ if(state.openedDoors[door.id]){log("That door is already open.");return}
+ if(door.locked){log("The door is locked.");return}
+ state.openedDoors[door.id]=true;
+ log("The door opens with a heavy scrape.");
+ render();
+}
 function move(){
  if(blocked()) return;
- let nx=state.x,ny=state.y;
- if(state.dir===0) ny--; if(state.dir===1) nx++; if(state.dir===2) ny++; if(state.dir===3) nx--;
- if(nx < -MAP_HALF || nx > MAP_HALF || ny < -MAP_HALF || ny > MAP_HALF){
-  log("Solid rock blocks the edge of this floor.");
+ const next=tileAhead();
+ if(!walkable(next.x,next.y)){
+  log("Solid rock blocks your way.");
   return;
  }
- state.x=nx; state.y=ny;
+ const door=doorAhead();
+ if(door&&!state.openedDoors[door.id]){
+  log("A closed door blocks your way. Tap OPEN.");
+  render();
+  return;
+ }
+ state.x=next.x;state.y=next.y;
  state.steps++; state.visited[visitKey()]=true; ensureRoom(); render();
 }
 function enemyTurn(){
@@ -317,18 +356,21 @@ function rest(){
  if(Math.random()<.25){state.rooms[key()].enemy=true;ensureRoom()}
  render();
 }
-function save(){localStorage.setItem("veyra-save",JSON.stringify(state));log("Game saved on this device.")}
+function save(){localStorage.setItem(SAVE_KEY,JSON.stringify(state));log("Game saved on this device.")}
 function load(){
- let s=localStorage.getItem("veyra-save");
+ let s=localStorage.getItem(SAVE_KEY);
  if(!s){log("No saved game found.");return}
- state=JSON.parse(s);
+ const loaded=JSON.parse(s);
+ if(loaded.mapVersion!==MAP_VERSION){log("That save belongs to an older dungeon version. Begin a new game.");return}
+ state=loaded;
  if(!state.visited) state.visited={};
- Object.keys(state.visited).forEach(k=>{if(!k.includes(":")) state.visited[state.floor+":"+k]=true});
+ if(!state.openedDoors)state.openedDoors={};
  state.visited[visitKey()]=true;
  log("Saved game restored.");render();
 }
 function flash(c){let f=$("#flash");f.style.background=c;setTimeout(()=>f.style.background="#0000",110)}
 $("#forward").onclick=move;
+$("#openDoor").onclick=openDoor;
 $("#turnL").onclick=()=>{if(!blocked()){state.dir=(state.dir+3)%4;render()}};
 $("#turnR").onclick=()=>{if(!blocked()){state.dir=(state.dir+1)%4;render()}};
 $("#attack").onclick=attack; $("#search").onclick=searchRoom; $("#rest").onclick=rest;
@@ -339,6 +381,27 @@ $("#newgame").onclick=()=>{$("#startModal").classList.remove("hidden")};
 $("#begin").onclick=()=>{
  state=newState(); state.visited[visitKey()]=true; $("#startModal").classList.add("hidden"); ensureRoom(); log("You descend beneath Veyra. The gate seals behind you.");render();
 };
+
+async function loadFloor(){
+ try{
+  const response=await fetch(MAP_FILE,{cache:"no-store"});
+  if(!response.ok)throw new Error(`Map request failed: ${response.status}`);
+  floorMap=await response.json();
+  if(floorMap.width!==40||floorMap.height!==40||!Array.isArray(floorMap.rows))throw new Error("Unexpected map format");
+  doorByEdge=new Map(floorMap.doors.map(door=>{
+   const [a,b]=door.between_tiles;
+   return [edgeKey(a[0],a[1],b[0],b[1]),door];
+  }));
+  $("#begin").disabled=false;
+  $("#begin").textContent="ENTER THE DEPTHS";
+  $("#location").textContent=`Floor 1 · ${floorMap.name}`;
+ }catch(error){
+  $("#begin").textContent="FLOOR FAILED TO LOAD";
+  $("#startModal p").textContent="The Fountain Level could not be loaded. Refresh the page while connected to the internet.";
+  console.error(error);
+ }
+}
+loadFloor();
 </script>
 
 <div id="installTip" style="display:none;position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:50;background:#17130ef2;border:1px solid #76623c;border-radius:10px;padding:12px;color:#e7d7ad;box-shadow:0 8px 30px #0009;font:14px Georgia,serif">
