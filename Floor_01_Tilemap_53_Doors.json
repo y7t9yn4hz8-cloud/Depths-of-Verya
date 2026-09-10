@@ -71,8 +71,26 @@
         3.5,
         3.5
       ],
+      "interaction_tiles": [
+        [3, 3],
+        [4, 3],
+        [3, 4],
+        [4, 4]
+      ],
+      "safe_zone_bounds": [1, 1, 6, 5],
       "blocks_movement": false,
-      "notes": "Planned fountain in the large upper-left chamber."
+      "notes": "Fountain of Renewal in the large upper-left safe chamber."
+    },
+    {
+      "id": "stairs_down_01",
+      "type": "stairs_down",
+      "tile": [
+        25,
+        15
+      ],
+      "destination_floor": 2,
+      "blocks_movement": false,
+      "notes": "User-selected square 26 from the left and 16 from the top."
     }
   ],
   "door_count": 53,

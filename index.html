@@ -73,6 +73,7 @@ input,select{width:100%;margin-top:3px;background:#0b0907;color:var(--text);bord
 .hidden{display:none}
 .enemy{position:absolute;left:50%;top:46%;transform:translate(-50%,-50%);font-size:74px;filter:drop-shadow(0 12px 9px #000);text-align:center}
 .enemyname{font-size:13px;background:#080706cc;border:1px solid #5f4d31;padding:3px 7px;border-radius:5px}
+.landmark{position:absolute;left:50%;top:48%;transform:translate(-50%,-50%);font-size:86px;filter:drop-shadow(0 12px 14px #000);text-align:center}
 .badge{display:inline-block;border:1px solid #5f4e31;border-radius:20px;padding:2px 7px;margin-left:4px;color:var(--muted)}
 
 .mapmodal{position:absolute;inset:0;background:#000e;display:flex;align-items:center;justify-content:center;z-index:20;padding:14px}
@@ -83,6 +84,7 @@ input,select{width:100%;margin-top:3px;background:#0b0907;color:var(--text);bord
 #dungeonMap{display:grid;grid-template-columns:repeat(40,14px);grid-auto-rows:14px;width:max-content;background:#000}
 .maptile{width:14px;height:14px;background:#000;border:1px solid #050505}
 .maptile.seen{background:#4d493e;border-color:#66604f}
+.maptile.landmark{background:#31525a;color:#d8f4ff;font-size:10px;line-height:12px;text-align:center;font-weight:bold}
 .maptile.current{background:#d8b968;color:#111;font-size:10px;line-height:12px;text-align:center;font-weight:bold;border-color:#f0d98e}
 .maplegend{font-size:12px;color:var(--muted);margin:8px 0 0;line-height:1.4}
 .mapmodal.hidden{display:none!important}
@@ -92,7 +94,7 @@ input,select{width:100%;margin-top:3px;background:#0b0907;color:var(--text);bord
 <body>
 <div id="app">
   <div class="topbar">
-    <div><div class="title">DEPTHS OF VEYRA</div><div class="small">Prototype 0.4 · the Fountain Level</div></div>
+    <div><div class="title">DEPTHS OF VEYRA</div><div class="small">Prototype 0.5 · the Fountain Level</div></div>
     <div class="small" id="location">Floor 1 · loading</div>
   </div>
   <div class="main">
@@ -103,6 +105,7 @@ input,select{width:100%;margin-top:3px;background:#0b0907;color:var(--text);bord
         <div class="door" id="door"></div>
         <div class="torch t1">🔥</div><div class="torch t2">🔥</div>
         <div class="enemy hidden" id="enemySprite"><div id="enemyIcon">👹</div><div class="enemyname" id="enemyName">Ghoul</div></div>
+        <div class="landmark hidden" id="landmarkSprite"></div>
         <div class="combat-flash" id="flash"></div>
         <div class="caption" id="caption">The air smells of cold stone and old iron.</div>
       </div>
@@ -175,8 +178,8 @@ const enemyTypes=[
  {name:"Crypt Shade",icon:"👻",hp:24,atk:7,gold:[9,18]}
 ];
 const MAP_FILE="Floor_01_Tilemap_53_Doors.json";
-const MAP_VERSION="floor-01-53-doors";
-const SAVE_KEY="veyra-save-v0.4";
+const MAP_VERSION="floor-01-objectives-v0.5";
+const SAVE_KEY="veyra-save-v0.5";
 let floorMap=null;
 let doorByEdge=new Map();
 let state=null;
@@ -206,6 +209,17 @@ function doorAhead(){
  const next=tileAhead();
  return doorByEdge.get(edgeKey(state.x,state.y,next.x,next.y))||null;
 }
+function stairsObject(){return floorMap.objects.find(o=>o.type==="stairs_down")}
+function fountainObject(){return floorMap.objects.find(o=>o.type==="fountain")}
+function atStairs(x=state.x,y=state.y){const s=stairsObject();return !!s&&x===s.tile[0]&&y===s.tile[1]}
+function atFountain(x=state.x,y=state.y){
+ const f=fountainObject();
+ return !!f&&f.interaction_tiles.some(tile=>x===tile[0]&&y===tile[1]);
+}
+function inFountainSafeZone(x=state.x,y=state.y){
+ const bounds=fountainObject()?.safe_zone_bounds;
+ return !!bounds&&x>=bounds[0]&&y>=bounds[1]&&x<=bounds[2]&&y<=bounds[3];
+}
 function seededRoom(x,y){
  let n=Math.abs((x*73856093)^(y*19349663)^(state.floor*83492791));
  return {enemy:n%5===0,loot:n%7===0,desc:[
@@ -221,6 +235,11 @@ function ensureRoom(){
  let k=key();
  if(!state.rooms[k]) state.rooms[k]=seededRoom(state.x,state.y);
  let r=state.rooms[k];
+ if(inFountainSafeZone()){
+   r.enemy=false;
+   state.enemy=null;
+   return;
+ }
  if(r.enemy && !r.cleared && !state.enemy){
    const entrance=floorMap.objects.find(o=>o.type==="entrance")?.tile||[2,39];
    const distance=Math.abs(state.x-entrance[0])+Math.abs(state.y-entrance[1]);
@@ -242,6 +261,12 @@ function renderMap(){
    const d=document.createElement("div");
    d.className="maptile";
    if(walkable(x,y)&&state.visited&&state.visited[visitKey(x,y)]) d.classList.add("seen");
+   if(state.visited&&state.visited[visitKey(x,y)]&&atFountain(x,y)){
+    d.classList.add("landmark");d.textContent="≈";
+   }
+   if(state.visited&&state.visited[visitKey(x,y)]&&atStairs(x,y)){
+    d.classList.add("landmark");d.textContent="▼";
+   }
    if(x===state.x && y===state.y){
     d.classList.add("current");
     d.textContent=arrows[state.dir];
@@ -270,8 +295,13 @@ function render(){
  let r=state.rooms[key()]||seededRoom(state.x,state.y);
  const door=doorAhead();
  const closedDoor=door&&!state.openedDoors[door.id];
+ const fountainHere=atFountain();
+ const stairsHere=atStairs();
  $("#door").classList.toggle("hidden",!closedDoor);
- $("#caption").textContent=state.enemy?`${state.enemy.name}: ${state.enemy.hp}/${state.enemy.maxhp} HP`:closedDoor?"A closed door blocks the passage ahead.":r.desc;
+ $("#landmarkSprite").classList.toggle("hidden",!fountainHere&&!stairsHere);
+ $("#landmarkSprite").textContent=fountainHere?"⛲":stairsHere?"⤵":"";
+ $("#openDoor").textContent=fountainHere?"DRINK":stairsHere?"DESCEND":"OPEN";
+ $("#caption").textContent=state.enemy?`${state.enemy.name}: ${state.enemy.hp}/${state.enemy.maxhp} HP`:fountainHere?"The Fountain of Renewal fills the chamber with quiet blue light.":stairsHere?"Stone steps spiral downward into the darkness of Floor 02.":closedDoor?"A closed door blocks the passage ahead.":inFountainSafeZone()?"The fountain's gentle murmur makes this chamber feel safe.":r.desc;
  if(state.enemy){
    $("#enemySprite").classList.remove("hidden");
    $("#enemyIcon").textContent=state.enemy.icon; $("#enemyName").textContent=state.enemy.name;
@@ -281,8 +311,23 @@ function log(t){
  let d=document.createElement("div"); d.textContent="• "+t; $("#log").appendChild(d); $("#log").scrollTop=$("#log").scrollHeight;
 }
 function blocked(){if(state.enemy){log("The enemy blocks your way.");return true}return false}
-function openDoor(){
+function interact(){
  if(blocked())return;
+ if(atFountain()){
+  state.party.forEach(m=>{m.hp=m.maxhp;m.mp=m.maxmp});
+  log("You drink from the Fountain of Renewal. The party is fully restored.");
+  render();
+  return;
+ }
+ if(atStairs()){
+  if(!state.floorOneComplete){
+   state.floorOneComplete=true;
+   log("Floor 01 complete: you discovered the stairs to Floor 02.");
+   save();
+  }else log("The way to Floor 02 is open, but that floor has not been built yet.");
+  render();
+  return;
+ }
  const door=doorAhead();
  if(!door){log("There is no door ahead.");return}
  if(state.openedDoors[door.id]){log("That door is already open.");return}
@@ -353,7 +398,7 @@ function rest(){
  if(state.enemy){log("You cannot rest during combat.");return}
  state.party.forEach(m=>{m.hp=Math.min(m.maxhp,m.hp+Math.ceil(m.maxhp*.35));m.mp=Math.min(m.maxmp,m.mp+Math.ceil(m.maxmp*.35))});
  log("The party rests briefly. Distant sounds echo in the halls.");
- if(Math.random()<.25){state.rooms[key()].enemy=true;ensureRoom()}
+ if(!inFountainSafeZone()&&Math.random()<.25){state.rooms[key()].enemy=true;ensureRoom()}
  render();
 }
 function save(){localStorage.setItem(SAVE_KEY,JSON.stringify(state));log("Game saved on this device.")}
@@ -370,7 +415,7 @@ function load(){
 }
 function flash(c){let f=$("#flash");f.style.background=c;setTimeout(()=>f.style.background="#0000",110)}
 $("#forward").onclick=move;
-$("#openDoor").onclick=openDoor;
+$("#openDoor").onclick=interact;
 $("#turnL").onclick=()=>{if(!blocked()){state.dir=(state.dir+3)%4;render()}};
 $("#turnR").onclick=()=>{if(!blocked()){state.dir=(state.dir+1)%4;render()}};
 $("#attack").onclick=attack; $("#search").onclick=searchRoom; $("#rest").onclick=rest;
