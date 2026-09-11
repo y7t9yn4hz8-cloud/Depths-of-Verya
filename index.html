@@ -29,26 +29,11 @@ body{display:flex;justify-content:center}
 @media(max-width:650px){.main{grid-template-columns:1fr;grid-template-rows:1fr auto}.party{max-height:31vh}}
 .card{border:1px solid var(--line);background:linear-gradient(#1d1912,#12100c);border-radius:10px;box-shadow:0 0 0 1px #000 inset,0 8px 30px #0007}
 .view{position:relative;overflow:hidden;display:flex;flex-direction:column}
-.scene{position:relative;flex:1;min-height:260px;background:#070706;perspective:700px;overflow:hidden}
-.ceiling,.floor{position:absolute;left:0;right:0;height:50%}
-.ceiling{top:0;background:linear-gradient(#15130f,#090806)}
-.floor{bottom:0;background:linear-gradient(#090806,#1c1811)}
-.wall-center{position:absolute;left:25%;right:25%;top:16%;bottom:16%;background:
-linear-gradient(90deg,#2b261d 0 7%,#3b3428 7% 14%,#29241c 14% 21%,#403829 21% 28%,#2a261d 28% 35%,#393225 35% 42%,#2a261f 42% 49%,#41392b 49% 56%,#2b261e 56% 63%,#3c3427 63% 70%,#29241b 70% 77%,#403729 77% 84%,#2b261e 84% 91%,#3a3326 91% 100%);
-box-shadow:0 0 70px #000 inset,0 0 30px #000}
-.leftwall,.rightwall{position:absolute;top:4%;bottom:4%;width:39%;background:#1e1a14;box-shadow:0 0 45px #000 inset}
-.leftwall{left:-11%;transform:rotateY(58deg);transform-origin:left center}
-.rightwall{right:-11%;transform:rotateY(-58deg);transform-origin:right center}
-.door{position:absolute;left:38%;width:24%;top:29%;height:42%;border:5px solid #57472d;border-bottom:none;background:#070706;box-shadow:0 0 15px #000 inset}
-.wall-torches{position:absolute;inset:0;z-index:1;pointer-events:none}
-.torch{position:absolute;top:27%;width:48px;text-align:center;color:#9b7a42;filter:drop-shadow(0 0 8px #d69a3d)}
-.torch::before{content:"";position:absolute;left:50%;top:14px;width:120px;height:120px;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle,#f0a63238 0,#d07a181c 30%,#0000 70%)}
-.torch-flame{position:relative;z-index:1;display:block;font-size:29px;transform-origin:50% 85%;animation:torch-flicker 1.15s ease-in-out infinite alternate}
-.torch-sconce{position:relative;z-index:1;display:block;margin-top:-5px;font:700 26px/1 Georgia,serif;color:#8c7042;text-shadow:0 2px 2px #000}
-.t1{left:26%}.t2{right:26%}
-@keyframes torch-flicker{0%{transform:scale(.96) rotate(-1deg);filter:brightness(.92)}55%{transform:scale(1.04) rotate(1deg);filter:brightness(1.12)}100%{transform:scale(.99) rotate(-.5deg);filter:brightness(1.02)}}
-@media(prefers-reduced-motion:reduce){.torch-flame{animation:none}}
-.caption{position:absolute;left:8px;right:8px;bottom:8px;text-align:center;background:#0b0906cc;border:1px solid #5d4c2e;padding:7px;border-radius:6px;font-size:13px}
+.scene{position:relative;flex:1;min-height:260px;background:#070706;overflow:hidden;isolation:isolate}
+.scene-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;background:#090806}
+.scene-vignette{position:absolute;inset:0;z-index:4;pointer-events:none;box-shadow:inset 0 0 58px 24px #000b;background:linear-gradient(180deg,#0005 0,#0000 28%,#0000 68%,#0007 100%)}
+.door{display:none}
+.caption{position:absolute;z-index:8;left:8px;right:8px;bottom:8px;text-align:center;background:#0b0906e8;border:1px solid #715c34;padding:7px;border-radius:6px;font-size:13px;box-shadow:0 4px 16px #000}
 .combat-flash{position:absolute;inset:0;pointer-events:none;background:#8a201a00;transition:.12s}
 .controls{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;padding:8px}
 button{appearance:none;border:1px solid #7f6b42;background:linear-gradient(#31291a,#17130e);color:var(--text);border-radius:8px;padding:11px 6px;font:700 15px Georgia,serif;box-shadow:0 2px 0 #000}
@@ -85,9 +70,10 @@ button.danger{border-color:#844c43}
 label{font-size:12px;color:var(--muted)}
 input,select{width:100%;margin-top:3px;background:#0b0907;color:var(--text);border:1px solid #67573a;border-radius:6px;padding:10px;font-size:16px}
 .hidden{display:none}
-.enemy{position:absolute;left:50%;top:46%;transform:translate(-50%,-50%);font-size:74px;filter:drop-shadow(0 12px 9px #000);text-align:center}
-.enemyname{font-size:13px;background:#080706cc;border:1px solid #5f4d31;padding:3px 7px;border-radius:5px}
-.scene-landmark{position:absolute;left:50%;top:48%;transform:translate(-50%,-50%);font-size:86px;filter:drop-shadow(0 12px 14px #000);text-align:center}
+.enemy{position:absolute;z-index:6;left:50%;top:54%;transform:translate(-50%,-50%);font-size:78px;filter:drop-shadow(0 15px 8px #000);text-align:center;pointer-events:none}
+.enemy::after{content:"";display:block;width:82px;height:13px;margin:-15px auto 0;border-radius:50%;background:#000a;filter:blur(4px)}
+.enemyname{position:relative;z-index:1;font-size:13px;background:#080706e8;border:1px solid #6d5935;padding:3px 7px;border-radius:5px}
+.scene-landmark{position:absolute;z-index:6;left:50%;top:52%;transform:translate(-50%,-50%);font-size:86px;filter:drop-shadow(0 15px 10px #000);text-align:center;pointer-events:none}
 .badge{display:inline-block;border:1px solid #5f4e31;border-radius:20px;padding:2px 7px;margin-left:4px;color:var(--muted)}
 
 .mapmodal{position:absolute;inset:0;background:#000e;display:flex;align-items:center;justify-content:center;z-index:20;padding:14px}
@@ -117,21 +103,17 @@ input,select{width:100%;margin-top:3px;background:#0b0907;color:var(--text);bord
 <body>
 <div id="app">
   <div class="topbar">
-    <div><div class="title">DEPTHS OF VEYRA</div><div class="small">Prototype 0.8.2 · wall torches</div></div>
+    <div><div class="title">DEPTHS OF VEYRA</div><div class="small">Prototype 0.9.0 · stone dungeon</div></div>
     <div class="small" id="location">Floor 1 · loading</div>
   </div>
   <div class="main">
     <section class="card view">
       <div class="scene" id="scene">
-        <div class="ceiling"></div><div class="floor"></div>
-        <div class="leftwall"></div><div class="rightwall"></div><div class="wall-center"></div>
-        <div class="door" id="door"></div>
-        <div class="wall-torches" id="wallTorches" aria-hidden="true">
-          <div class="torch t1"><span class="torch-flame">🔥</span><span class="torch-sconce">╲</span></div>
-          <div class="torch t2"><span class="torch-flame">🔥</span><span class="torch-sconce">╱</span></div>
-        </div>
+        <canvas class="scene-canvas" id="dungeonView" aria-label="First-person view of the dungeon"></canvas>
+        <div class="door hidden" id="door"></div>
         <div class="enemy hidden" id="enemySprite"><div id="enemyIcon">👹</div><div class="enemyname" id="enemyName">Ghoul</div></div>
         <div class="scene-landmark hidden" id="landmarkSprite"></div>
+        <div class="scene-vignette" aria-hidden="true"></div>
         <div class="combat-flash" id="flash"></div>
         <div class="caption" id="caption">The air smells of cold stone and old iron.</div>
       </div>
@@ -341,6 +323,148 @@ function inFountainSafeZone(x=state.x,y=state.y){
  const bounds=fountainObject()?.safe_zone_bounds;
  return !!bounds&&x>=bounds[0]&&y>=bounds[1]&&x<=bounds[2]&&y<=bounds[3];
 }
+
+const VIEW_FOV=Math.PI/3;
+const directionVectors=[[0,-1],[1,0],[0,1],[-1,0]];
+function fractional(value){return value-Math.floor(value)}
+function sceneNoise(a,b,c=0){
+ const value=Math.sin(a*12.9898+b*78.233+c*37.719)*43758.5453;
+ return fractional(Math.abs(value));
+}
+function closedDoorOnEdge(ax,ay,bx,by){
+ const door=doorByEdge.get(edgeKey(ax,ay,bx,by));
+ return door&&!state.openedDoors[door.id]?door:null;
+}
+function castDungeonRay(px,py,rayX,rayY){
+ let mapX=Math.floor(px),mapY=Math.floor(py);
+ const deltaX=Math.abs(1/(rayX||.000001));
+ const deltaY=Math.abs(1/(rayY||.000001));
+ const stepX=rayX<0?-1:1,stepY=rayY<0?-1:1;
+ let sideX=(rayX<0?px-mapX:mapX+1-px)*deltaX;
+ let sideY=(rayY<0?py-mapY:mapY+1-py)*deltaY;
+ let distance=18,side=0,kind="wall",hitX=mapX,hitY=mapY;
+ for(let depth=0;depth<48;depth++){
+  const previousX=mapX,previousY=mapY;
+  if(sideX<sideY){distance=sideX;sideX+=deltaX;mapX+=stepX;side=0}
+  else{distance=sideY;sideY+=deltaY;mapY+=stepY;side=1}
+  const door=closedDoorOnEdge(previousX,previousY,mapX,mapY);
+  if(door){kind="door";hitX=mapX;hitY=mapY;break}
+  if(!walkable(mapX,mapY)){kind="wall";hitX=mapX;hitY=mapY;break}
+ }
+ const contact=side===0?py+distance*rayY:px+distance*rayX;
+ let texture=fractional(contact);
+ if((side===0&&rayX>0)||(side===1&&rayY<0))texture=1-texture;
+ return {distance,side,kind,texture,hitX,hitY};
+}
+function paintDungeonBackground(context,width,height,horizon){
+ const ceiling=context.createLinearGradient(0,0,0,horizon);
+ ceiling.addColorStop(0,"#17140f");ceiling.addColorStop(.72,"#292319");ceiling.addColorStop(1,"#15120d");
+ context.fillStyle=ceiling;context.fillRect(0,0,width,horizon);
+ const floor=context.createLinearGradient(0,horizon,0,height);
+ floor.addColorStop(0,"#17130e");floor.addColorStop(.55,"#2c251a");floor.addColorStop(1,"#17120c");
+ context.fillStyle=floor;context.fillRect(0,horizon,width,height-horizon);
+ context.lineWidth=1;
+ for(let row=1;row<=9;row++){
+  const progression=row/9;
+  const y=horizon+(height-horizon)*progression*progression;
+  context.strokeStyle=`rgba(7,6,4,${.2+.38*progression})`;
+  context.beginPath();context.moveTo(0,y);context.lineTo(width,y);context.stroke();
+ }
+ for(let lane=-7;lane<=7;lane++){
+  context.strokeStyle="rgba(8,7,5,.38)";
+  context.beginPath();context.moveTo(width/2+lane*5,horizon);context.lineTo(width/2+lane*54,height);context.stroke();
+ }
+ for(let i=0;i<150;i++){
+  const x=sceneNoise(i,4)*width;
+  const y=horizon+sceneNoise(i,9)*(height-horizon);
+  context.fillStyle=`rgba(205,180,126,${.015+sceneNoise(i,2)*.045})`;
+  context.fillRect(x,y,1+sceneNoise(i,7)*2,1);
+ }
+}
+function paintWallStrip(context,x,width,top,bottom,hit){
+ const wallHeight=Math.max(1,bottom-top);
+ const distanceLight=Math.max(.18,1-hit.distance/12);
+ const sideLight=hit.side===0?.78:1;
+ const variation=.9+sceneNoise(hit.hitX,hit.hitY)*.18;
+ for(let y=Math.max(0,top);y<bottom;y+=3){
+  const vertical=(y-top)/wallHeight;
+  const row=Math.floor(vertical*8);
+  const mortarY=fractional(vertical*8)<.065;
+  const mortarX=fractional(hit.texture*6+(row%2)*.5)<.055;
+  let red,green,blue;
+  if(hit.kind==="door"){
+   const plank=fractional(hit.texture*7)<.055;
+   const iron=Math.abs(vertical-.25)<.025||Math.abs(vertical-.68)<.025;
+   if(plank){red=26;green=18;blue=10}
+   else if(iron){red=38;green=38;blue=34}
+   else{red=91;green=57;blue=28}
+  }else if(mortarY||mortarX){red=29;green=28;blue=24}
+  else{
+   const block=.86+sceneNoise(row,Math.floor(hit.texture*6),hit.hitX+hit.hitY)*.22;
+   red=100*block;green=94*block;blue=78*block;
+  }
+  const illumination=(.28+.72*distanceLight)*sideLight*variation;
+  const fog=Math.min(.72,hit.distance/17);
+  red=red*illumination*(1-fog)+8*fog;
+  green=green*illumination*(1-fog)+8*fog;
+  blue=blue*illumination*(1-fog)+7*fog;
+  context.fillStyle=`rgb(${Math.round(red)},${Math.round(green)},${Math.round(blue)})`;
+  context.fillRect(x,y,width,3.4);
+ }
+}
+function paintWallTorch(context,x,y,scale,time){
+ const flicker=.9+Math.sin(time*.011+x)*.06+Math.sin(time*.027+x*.1)*.04;
+ const glow=context.createRadialGradient(x,y,1,x,y,105*scale*flicker);
+ glow.addColorStop(0,"rgba(255,199,73,.38)");
+ glow.addColorStop(.22,"rgba(255,127,31,.18)");
+ glow.addColorStop(1,"rgba(255,86,12,0)");
+ context.save();context.globalCompositeOperation="screen";context.fillStyle=glow;
+ context.beginPath();context.arc(x,y,105*scale*flicker,0,Math.PI*2);context.fill();context.restore();
+ context.lineCap="round";context.lineWidth=Math.max(2,4*scale);context.strokeStyle="#70502b";
+ context.beginPath();context.moveTo(x,y+12*scale);context.lineTo(x+(x<context.canvas.clientWidth/2?-18:18)*scale,y+48*scale);context.stroke();
+ context.save();context.translate(x,y);context.scale(flicker,1/flicker);
+ const flame=context.createRadialGradient(0,6*scale,1,0,0,22*scale);
+ flame.addColorStop(0,"#fff5a1");flame.addColorStop(.28,"#ffd238");flame.addColorStop(.7,"#ff6818");flame.addColorStop(1,"rgba(190,42,4,0)");
+ context.fillStyle=flame;context.beginPath();
+ context.moveTo(0,-24*scale);context.bezierCurveTo(18*scale,-8*scale,13*scale,17*scale,0,20*scale);context.bezierCurveTo(-14*scale,15*scale,-17*scale,-5*scale,0,-24*scale);context.fill();context.restore();
+}
+function drawDungeonScene(time=0){
+ if(!floorMap||!state)return;
+ const canvas=$("#dungeonView");
+ const bounds=canvas.getBoundingClientRect();
+ if(bounds.width<2||bounds.height<2)return;
+ const ratio=Math.min(window.devicePixelRatio||1,1.75);
+ const width=Math.round(bounds.width),height=Math.round(bounds.height);
+ const pixelWidth=Math.round(width*ratio),pixelHeight=Math.round(height*ratio);
+ if(canvas.width!==pixelWidth||canvas.height!==pixelHeight){canvas.width=pixelWidth;canvas.height=pixelHeight}
+ const context=canvas.getContext("2d");
+ context.setTransform(ratio,0,0,ratio,0,0);
+ context.clearRect(0,0,width,height);
+ const horizon=height*.47;
+ paintDungeonBackground(context,width,height,horizon);
+ const px=state.x+.5,py=state.y+.5;
+ const [forwardX,forwardY]=directionVectors[state.dir];
+ const viewAngle=Math.atan2(forwardY,forwardX);
+ const stripWidth=2;
+ for(let screenX=0;screenX<width;screenX+=stripWidth){
+  const rayAngle=viewAngle-VIEW_FOV/2+VIEW_FOV*(screenX/width);
+  const rayX=Math.cos(rayAngle),rayY=Math.sin(rayAngle);
+  const hit=castDungeonRay(px,py,rayX,rayY);
+  const corrected=Math.max(.08,hit.distance*Math.cos(rayAngle-viewAngle));
+  const wallHeight=Math.min(height*2.1,height*.84/corrected);
+  const top=horizon-wallHeight/2,bottom=horizon+wallHeight/2;
+  paintWallStrip(context,screenX,stripWidth+.6,top,bottom,{...hit,distance:corrected});
+ }
+ if(state.floor===1){
+  const torchScale=Math.max(.78,Math.min(1.15,width/440));
+  paintWallTorch(context,width*.23,height*.34,torchScale,time);
+  paintWallTorch(context,width*.77,height*.34,torchScale,time+147);
+ }
+ const haze=context.createRadialGradient(width/2,horizon,30,width/2,horizon,width*.62);
+ haze.addColorStop(0,"rgba(0,0,0,0)");haze.addColorStop(.7,"rgba(0,0,0,.04)");haze.addColorStop(1,"rgba(0,0,0,.52)");
+ context.fillStyle=haze;context.fillRect(0,0,width,height);
+}
+
 function seededRoom(x,y){
  let n=Math.abs((x*73856093)^(y*19349663)^(state.floor*83492791));
  return {enemy:n%5===0,loot:n%7===0,desc:[
@@ -405,7 +529,6 @@ function renderMap(){
 
 function render(){
  $("#location").textContent=`Floor ${state.floor} · ${state.x},${state.y} · ${dirs[state.dir]}`;
- $("#wallTorches").classList.toggle("hidden",state.floor!==1);
  $("#gold").textContent=state.gold+" gold";
  $("#party").innerHTML=state.party.map(m=>{
   const xp=xpProgress(m);
@@ -431,6 +554,7 @@ function render(){
    $("#enemySprite").classList.remove("hidden");
    $("#enemyIcon").textContent=state.enemy.icon; $("#enemyName").textContent=state.enemy.name;
  } else $("#enemySprite").classList.add("hidden");
+ drawDungeonScene(performance.now());
 }
 function log(t){
  let d=document.createElement("div"); d.textContent="• "+t; $("#log").appendChild(d); $("#log").scrollTop=$("#log").scrollHeight;
@@ -722,6 +846,15 @@ async function loadFloor(){
  }
 }
 loadFloor();
+let previousSceneFrame=0;
+function animateDungeonView(time){
+ if(state&&floorMap&&!state.inTown&&time-previousSceneFrame>85){
+  previousSceneFrame=time;
+  drawDungeonScene(time);
+ }
+ requestAnimationFrame(animateDungeonView);
+}
+requestAnimationFrame(animateDungeonView);
 </script>
 
 <div id="installTip" style="display:none;position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:50;background:#17130ef2;border:1px solid #76623c;border-radius:10px;padding:12px;color:#e7d7ad;box-shadow:0 8px 30px #0009;font:14px Georgia,serif">
