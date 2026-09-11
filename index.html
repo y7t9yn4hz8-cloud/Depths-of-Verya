@@ -102,7 +102,7 @@ input,select{width:100%;margin-top:3px;background:#0b0907;color:var(--text);bord
 <body>
 <div id="app">
   <div class="topbar">
-    <div><div class="title">DEPTHS OF VEYRA</div><div class="small">Prototype 0.6.1 · town and autosave</div></div>
+    <div><div class="title">DEPTHS OF VEYRA</div><div class="small">Prototype 0.7 · experience and leveling</div></div>
     <div class="small" id="location">Floor 1 · loading</div>
   </div>
   <div class="main">
@@ -187,7 +187,7 @@ input,select{width:100%;margin-top:3px;background:#0b0907;color:var(--text);bord
     <label>Companion name<input id="compName" value="Mira" maxlength="14"></label>
     <label>Companion class<select id="compClass"><option>Cleric</option><option>Warrior</option><option>Ranger</option><option>Mage</option></select></label>
   </div>
-  <p><b>Adventure loop:</b> prepare in town, explore the dungeon, and retreat to the inn when your party is wounded. Defeated monsters stay defeated.</p>
+  <p><b>Adventure loop:</b> prepare in town, explore the dungeon, defeat monsters to grow stronger, and retreat to the inn when your party is wounded. Defeated monsters stay defeated.</p>
   <button id="begin" disabled style="width:100%;margin-top:4px">LOADING FLOOR…</button>
   <button id="continueGame" class="secondary" disabled style="width:100%;margin-top:8px">CONTINUE SAVED GAME</button>
   <div class="small" id="saveStatus" style="text-align:center;margin-top:7px">Checking this browser for a saved adventure…</div>
@@ -198,16 +198,16 @@ input,select{width:100%;margin-top:3px;background:#0b0907;color:var(--text);bord
 const $=s=>document.querySelector(s);
 const dirs=["North","East","South","West"];
 const classData={
- Warrior:{hp:34,mp:4,atk:8,def:5},
- Ranger:{hp:27,mp:8,atk:7,def:4},
- Mage:{hp:19,mp:24,atk:9,def:2},
- Cleric:{hp:25,mp:18,atk:6,def:4}
+ Warrior:{hp:34,mp:4,atk:8,def:5,growth:{hp:8,mp:1,atk:2,def:1}},
+ Ranger:{hp:27,mp:8,atk:7,def:4,growth:{hp:6,mp:2,atk:2,def:1}},
+ Mage:{hp:19,mp:24,atk:9,def:2,growth:{hp:4,mp:6,atk:3,def:1}},
+ Cleric:{hp:25,mp:18,atk:6,def:4,growth:{hp:5,mp:5,atk:1,def:1}}
 };
 const enemyTypes=[
- {name:"Cave Rat",icon:"🐀",hp:8,atk:3,gold:[1,5]},
- {name:"Bone Guard",icon:"💀",hp:15,atk:5,gold:[4,10]},
- {name:"Ash Goblin",icon:"👺",hp:18,atk:6,gold:[6,14]},
- {name:"Crypt Shade",icon:"👻",hp:24,atk:7,gold:[9,18]}
+ {name:"Cave Rat",icon:"🐀",hp:8,atk:3,gold:[1,5],xp:12},
+ {name:"Bone Guard",icon:"💀",hp:15,atk:5,gold:[4,10],xp:20},
+ {name:"Ash Goblin",icon:"👺",hp:18,atk:6,gold:[6,14],xp:30},
+ {name:"Crypt Shade",icon:"👻",hp:24,atk:7,gold:[9,18],xp:42}
 ];
 const MAP_FILE="Floor_01_Tilemap_53_Doors.json";
 const MAP_VERSION="floor-01-objectives-v0.5";
@@ -234,6 +234,37 @@ function persist(){
  catch(error){console.warn("Could not save game",error);return false}
 }
 function autosave(){if(state)persist()}
+
+function xpForLevel(level){
+ const n=Math.max(0,(level||1)-1);
+ return 50*n*(n+1);
+}
+function xpProgress(member){
+ const level=Math.max(1,member.level||1);
+ const base=xpForLevel(level);
+ const next=xpForLevel(level+1);
+ return {earned:Math.max(0,(member.xp||0)-base),needed:next-base};
+}
+function levelUp(member){
+ const growth=(classData[member.cls]||classData.Warrior).growth;
+ member.level++;
+ member.maxhp+=growth.hp;member.hp=Math.min(member.maxhp,member.hp+growth.hp);
+ member.maxmp+=growth.mp;member.mp=Math.min(member.maxmp,member.mp+growth.mp);
+ member.atk+=growth.atk;member.def+=growth.def;
+ log(`${member.name} reaches Level ${member.level}! +${growth.hp} HP · +${growth.mp} MP · +${growth.atk} ATK · +${growth.def} DEF.`);
+}
+function awardExperience(amount){
+ const recipients=state.party.filter(member=>member.hp>0);
+ if(!recipients.length)return;
+ if(recipients.length===1)log(`${recipients[0].name} gains ${amount} XP.`);
+ else log(`${recipients.map(member=>member.name).join(" and ")} each gain ${amount} XP.`);
+ recipients.forEach(member=>{
+  member.xp=(member.xp||0)+amount;
+  while(member.xp>=xpForLevel((member.level||1)+1))levelUp(member);
+ });
+ const fallen=state.party.filter(member=>member.hp<=0);
+ if(fallen.length)log(`${fallen.map(member=>member.name).join(" and ")} cannot gain XP while unconscious.`);
+}
 
 function makeMember(name,cls){
  let c=classData[cls];
@@ -338,12 +369,14 @@ function renderMap(){
 function render(){
  $("#location").textContent=`Floor ${state.floor} · ${state.x},${state.y} · ${dirs[state.dir]}`;
  $("#gold").textContent=state.gold+" gold";
- $("#party").innerHTML=state.party.map(m=>`
+ $("#party").innerHTML=state.party.map(m=>{
+  const xp=xpProgress(m);
+  return `
   <div class="member">
    <div class="name"><b>${m.name}</b><span>${m.cls} Lv.${m.level}</span></div>
    <div class="bars"><div class="bar"><div class="fill hp" style="width:${100*m.hp/m.maxhp}%"></div></div><div class="bar"><div class="fill mp" style="width:${100*m.mp/m.maxmp}%"></div></div></div>
-   <div class="stats">HP ${m.hp}/${m.maxhp} · MP ${m.mp}/${m.maxmp} · ATK ${m.atk} · DEF ${m.def}</div>
-  </div>`).join("");
+   <div class="stats">HP ${m.hp}/${m.maxhp} · MP ${m.mp}/${m.maxmp} · ATK ${m.atk} · DEF ${m.def}<br>XP ${xp.earned}/${xp.needed} to Lv.${m.level+1}</div>
+  </div>`}).join("");
  $("#inventory").innerHTML=state.inv.slice(0,8).map(i=>`<div class="inv">${i}</div>`).join("") || `<div class="inv">Empty</div>`;
  let r=state.rooms[key()]||seededRoom(state.x,state.y);
  const door=doorAhead();
@@ -371,7 +404,7 @@ function renderTown(message){
  const cost=innCost();
  $("#location").textContent="Veyra's Gate · Surface";
  $("#townGold").textContent=state.gold+" gold";
- $("#townParty").innerHTML=state.party.map(m=>`<div class="townmember"><b>${m.name} · ${m.cls} Lv.${m.level}</b><span>HP ${m.hp}/${m.maxhp} · MP ${m.mp}/${m.maxmp}</span></div>`).join("");
+ $("#townParty").innerHTML=state.party.map(m=>{const xp=xpProgress(m);return `<div class="townmember"><b>${m.name} · ${m.cls} Lv.${m.level}</b><span>HP ${m.hp}/${m.maxhp} · MP ${m.mp}/${m.maxmp} · XP ${xp.earned}/${xp.needed}</span></div>`}).join("");
  $("#innPrice").textContent=cost?`Tonight's price: ${cost} gold for the party.`:"Tonight's price: FREE for novice adventurers.";
  if(message)$("#townNotice").textContent=message;
 }
@@ -485,6 +518,7 @@ function attack(){
    state.gold+=g; state.enemy=null; state.rooms[key()].cleared=true;
    if(Math.random()<.35){let loot=["Iron Ring","Blue Tonic","Old Map Scrap","Moonstone","Leather Bracers"][Math.floor(Math.random()*5)];state.inv.push(loot);log(`Victory. Found ${g} gold and ${loot}.`)}
    else log(`Victory. Found ${g} gold.`);
+   awardExperience(e.xp||0);
  } else enemyTurn();
  render();autosave();
 }
@@ -511,6 +545,14 @@ function load(){
  if(typeof state.fountainUsed!=="boolean")state.fountainUsed=false;
  if(typeof state.inTown!=="boolean")state.inTown=false;
  if(typeof state.expeditions!=="number")state.expeditions=1;
+ state.party.forEach(member=>{
+  member.level=Math.max(1,Number(member.level)||1);
+  if(!Number.isFinite(Number(member.xp)))member.xp=xpForLevel(member.level);
+  else member.xp=Math.max(0,Number(member.xp));
+ });
+ if(state.enemy&&!Number.isFinite(Number(state.enemy.xp))){
+  state.enemy.xp=enemyTypes.find(enemy=>enemy.name===state.enemy.name)?.xp||0;
+ }
  state.visited[visitKey()]=true;
  persist();
  $("#startModal").classList.add("hidden");
