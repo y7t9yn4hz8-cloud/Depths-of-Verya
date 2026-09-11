@@ -40,8 +40,14 @@ box-shadow:0 0 70px #000 inset,0 0 30px #000}
 .leftwall{left:-11%;transform:rotateY(58deg);transform-origin:left center}
 .rightwall{right:-11%;transform:rotateY(-58deg);transform-origin:right center}
 .door{position:absolute;left:38%;width:24%;top:29%;height:42%;border:5px solid #57472d;border-bottom:none;background:#070706;box-shadow:0 0 15px #000 inset}
-.torch{position:absolute;top:31%;font-size:25px;filter:drop-shadow(0 0 8px #d69a3d)}
-.t1{left:29%}.t2{right:29%}
+.wall-torches{position:absolute;inset:0;z-index:1;pointer-events:none}
+.torch{position:absolute;top:27%;width:48px;text-align:center;color:#9b7a42;filter:drop-shadow(0 0 8px #d69a3d)}
+.torch::before{content:"";position:absolute;left:50%;top:14px;width:120px;height:120px;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle,#f0a63238 0,#d07a181c 30%,#0000 70%)}
+.torch-flame{position:relative;z-index:1;display:block;font-size:29px;transform-origin:50% 85%;animation:torch-flicker 1.15s ease-in-out infinite alternate}
+.torch-sconce{position:relative;z-index:1;display:block;margin-top:-5px;font:700 26px/1 Georgia,serif;color:#8c7042;text-shadow:0 2px 2px #000}
+.t1{left:26%}.t2{right:26%}
+@keyframes torch-flicker{0%{transform:scale(.96) rotate(-1deg);filter:brightness(.92)}55%{transform:scale(1.04) rotate(1deg);filter:brightness(1.12)}100%{transform:scale(.99) rotate(-.5deg);filter:brightness(1.02)}}
+@media(prefers-reduced-motion:reduce){.torch-flame{animation:none}}
 .caption{position:absolute;left:8px;right:8px;bottom:8px;text-align:center;background:#0b0906cc;border:1px solid #5d4c2e;padding:7px;border-radius:6px;font-size:13px}
 .combat-flash{position:absolute;inset:0;pointer-events:none;background:#8a201a00;transition:.12s}
 .controls{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;padding:8px}
@@ -111,7 +117,7 @@ input,select{width:100%;margin-top:3px;background:#0b0907;color:var(--text);bord
 <body>
 <div id="app">
   <div class="topbar">
-    <div><div class="title">DEPTHS OF VEYRA</div><div class="small">Prototype 0.8.1 · XP balance</div></div>
+    <div><div class="title">DEPTHS OF VEYRA</div><div class="small">Prototype 0.8.2 · wall torches</div></div>
     <div class="small" id="location">Floor 1 · loading</div>
   </div>
   <div class="main">
@@ -120,7 +126,10 @@ input,select{width:100%;margin-top:3px;background:#0b0907;color:var(--text);bord
         <div class="ceiling"></div><div class="floor"></div>
         <div class="leftwall"></div><div class="rightwall"></div><div class="wall-center"></div>
         <div class="door" id="door"></div>
-        <div class="torch t1">🔥</div><div class="torch t2">🔥</div>
+        <div class="wall-torches" id="wallTorches" aria-hidden="true">
+          <div class="torch t1"><span class="torch-flame">🔥</span><span class="torch-sconce">╲</span></div>
+          <div class="torch t2"><span class="torch-flame">🔥</span><span class="torch-sconce">╱</span></div>
+        </div>
         <div class="enemy hidden" id="enemySprite"><div id="enemyIcon">👹</div><div class="enemyname" id="enemyName">Ghoul</div></div>
         <div class="scene-landmark hidden" id="landmarkSprite"></div>
         <div class="combat-flash" id="flash"></div>
@@ -396,6 +405,7 @@ function renderMap(){
 
 function render(){
  $("#location").textContent=`Floor ${state.floor} · ${state.x},${state.y} · ${dirs[state.dir]}`;
+ $("#wallTorches").classList.toggle("hidden",state.floor!==1);
  $("#gold").textContent=state.gold+" gold";
  $("#party").innerHTML=state.party.map(m=>{
   const xp=xpProgress(m);
