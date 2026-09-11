@@ -67,6 +67,14 @@ button.danger{border-color:#844c43}
 .modalbox{width:min(520px,100%);max-height:90%;overflow:auto;padding:18px;border:1px solid var(--line);border-radius:10px;background:#17130e}
 .modal h1{font-size:27px;margin:0 0 5px;color:var(--accent);text-align:center}
 .modal p{color:var(--muted);font-size:14px;line-height:1.4}
+.towncrest{text-align:center;font-size:54px;margin:2px 0 6px;filter:drop-shadow(0 7px 9px #000)}
+.townpanel{border:1px solid #4e432d;border-radius:8px;background:#100e0a;margin:10px 0;padding:10px}
+.townpanel h2{font-size:16px;color:var(--accent);margin:0 0 7px;letter-spacing:.05em}
+.townmember{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:5px 0;border-top:1px solid #30291c;font-size:13px}
+.townmember:first-child{border-top:0}
+.townactions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.townactions .wide{grid-column:1/-1}
+.townnotice{min-height:42px;border-left:3px solid var(--line);padding:7px 9px;margin-top:10px;background:#0b0907;color:var(--muted);font-size:13px;line-height:1.35}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 label{font-size:12px;color:var(--muted)}
 input,select{width:100%;margin-top:3px;background:#0b0907;color:var(--text);border:1px solid #67573a;border-radius:6px;padding:10px;font-size:16px}
@@ -94,7 +102,7 @@ input,select{width:100%;margin-top:3px;background:#0b0907;color:var(--text);bord
 <body>
 <div id="app">
   <div class="topbar">
-    <div><div class="title">DEPTHS OF VEYRA</div><div class="small">Prototype 0.5.2 · the Fountain Level</div></div>
+    <div><div class="title">DEPTHS OF VEYRA</div><div class="small">Prototype 0.6 · town and expeditions</div></div>
     <div class="small" id="location">Floor 1 · loading</div>
   </div>
   <div class="main">
@@ -117,8 +125,7 @@ input,select{width:100%;margin-top:3px;background:#0b0907;color:var(--text);bord
         <button id="attack" class="danger">⚔</button>
         <button id="search" class="good">✦</button>
       </div>
-      <div class="controls" style="padding-top:0;grid-template-columns:repeat(5,1fr)">
-        <button class="secondary" id="rest">REST</button>
+      <div class="controls" style="padding-top:0;grid-template-columns:repeat(4,1fr)">
         <button class="secondary" id="save">SAVE</button>
         <button class="secondary" id="load">LOAD</button>
         <button class="secondary" id="mapbtn">MAP</button>
@@ -147,6 +154,29 @@ input,select{width:100%;margin-top:3px;background:#0b0907;color:var(--text);bord
  </div>
 </div>
 
+<div class="modal hidden" id="townModal">
+ <div class="modalbox">
+  <div class="towncrest">🏘️</div>
+  <h1>Veyra's Gate</h1>
+  <p>A small settlement shelters beneath the old walls, just beyond the entrance to the depths.</p>
+  <div class="townpanel">
+   <h2>YOUR PARTY <span class="badge" id="townGold">0 gold</span></h2>
+   <div id="townParty"></div>
+  </div>
+  <div class="townpanel">
+   <h2>THE WAYFARER INN</h2>
+   <div class="small" id="innPrice"></div>
+   <p style="margin:7px 0 0">The inn fully restores the party's health and magic. Adventurers of levels 1–2 stay free.</p>
+  </div>
+  <div class="townnotice" id="townNotice">The dungeon gate stands open.</div>
+  <div class="townactions">
+   <button id="townInn">STAY AT THE INN</button>
+   <button id="townSave" class="secondary">SAVE GAME</button>
+   <button id="enterDungeon" class="good wide">ENTER THE DUNGEON</button>
+  </div>
+ </div>
+</div>
+
 <div class="modal" id="startModal">
  <div class="modalbox">
   <h1>Depths of Veyra</h1>
@@ -157,8 +187,9 @@ input,select{width:100%;margin-top:3px;background:#0b0907;color:var(--text);bord
     <label>Companion name<input id="compName" value="Mira" maxlength="14"></label>
     <label>Companion class<select id="compClass"><option>Cleric</option><option>Warrior</option><option>Ranger</option><option>Mage</option></select></label>
   </div>
-  <p><b>Controls:</b> turn, move forward, open doors, attack enemies, and search for loot. Your exploration and opened doors are saved on this device.</p>
+  <p><b>Adventure loop:</b> prepare in town, explore the dungeon, and retreat to the inn when your party is wounded. Defeated monsters stay defeated.</p>
   <button id="begin" disabled style="width:100%;margin-top:4px">LOADING FLOOR…</button>
+  <button id="continueGame" class="secondary" disabled style="width:100%;margin-top:8px">CONTINUE SAVED GAME</button>
  </div>
 </div>
 
@@ -193,7 +224,7 @@ function newState(){
  return {
   mapVersion:MAP_VERSION,floor:1,x:entrance[0],y:entrance[1],dir:0,steps:0,gold:12,
   party:[makeMember($("#leaderName").value||"Alden",$("#leaderClass").value),makeMember($("#compName").value||"Mira",$("#compClass").value)],
-  inv:["Rusty Key","2× Ration"],visited:{[`1:${entrance[0]},${entrance[1]}`]:true},openedDoors:{},fountainUsed:false,expeditions:1,enemy:null,rooms:{}
+  inv:["Rusty Key","2× Ration"],visited:{[`1:${entrance[0]},${entrance[1]}`]:true},openedDoors:{},fountainUsed:false,expeditions:0,inTown:true,enemy:null,rooms:{}
  };
 }
 function key(){return state.x+","+state.y}
@@ -237,7 +268,7 @@ function ensureRoom(){
  let k=key();
  if(!state.rooms[k]) state.rooms[k]=seededRoom(state.x,state.y);
  let r=state.rooms[k];
- if(inFountainSafeZone()||atStairs()){
+ if(inFountainSafeZone()||atStairs()||atEntrance()){
    r.enemy=false;
    state.enemy=null;
    return;
@@ -313,6 +344,44 @@ function render(){
 function log(t){
  let d=document.createElement("div"); d.textContent="• "+t; $("#log").appendChild(d); $("#log").scrollTop=$("#log").scrollHeight;
 }
+function innCost(){
+ return state.party.reduce((total,m)=>total+10*Math.max(0,(m.level||1)-2),0);
+}
+function renderTown(message){
+ const cost=innCost();
+ $("#location").textContent="Veyra's Gate · Surface";
+ $("#townGold").textContent=state.gold+" gold";
+ $("#townParty").innerHTML=state.party.map(m=>`<div class="townmember"><b>${m.name} · ${m.cls} Lv.${m.level}</b><span>HP ${m.hp}/${m.maxhp} · MP ${m.mp}/${m.maxmp}</span></div>`).join("");
+ $("#innPrice").textContent=cost?`Tonight's price: ${cost} gold for the party.`:"Tonight's price: FREE for novice adventurers.";
+ if(message)$("#townNotice").textContent=message;
+}
+function showTown(message){
+ state.inTown=true;
+ $("#mapModal").classList.add("hidden");
+ $("#townModal").classList.remove("hidden");
+ render();
+ renderTown(message);
+}
+function enterDungeon(){
+ const entrance=entranceObject()?.tile||[2,39];
+ state.inTown=false;
+ state.x=entrance[0];state.y=entrance[1];state.dir=0;state.enemy=null;
+ state.expeditions=(state.expeditions||0)+1;
+ state.visited[visitKey()]=true;
+ $("#townModal").classList.add("hidden");
+ log(`Expedition ${state.expeditions} begins. You pass through the dungeon gate.`);
+ ensureRoom();render();
+}
+function stayAtInn(){
+ const needsHealing=state.party.some(m=>m.hp<m.maxhp||m.mp<m.maxmp);
+ const cost=innCost();
+ if(!needsHealing){renderTown("The innkeeper smiles. Your party is already fully rested.");return}
+ if(state.gold<cost){renderTown(`The innkeeper asks for ${cost} gold, but the party only has ${state.gold}.`);return}
+ state.gold-=cost;
+ state.party.forEach(m=>{m.hp=m.maxhp;m.mp=m.maxmp});
+ const message=cost?`The party rests safely and awakens fully restored. The innkeeper collects ${cost} gold.`:"The innkeeper offers novice adventurers a free room. The party awakens fully restored.";
+ log(message);render();renderTown(message);
+}
 function blocked(){if(state.enemy){log("The enemy blocks your way.");return true}return false}
 function interact(){
  if(blocked())return;
@@ -338,10 +407,11 @@ function interact(){
  }
  if(atEntrance()){
   state.fountainUsed=false;
-  state.expeditions=(state.expeditions||1)+1;
-  log("You return to the surface. The Fountain of Renewal is restored for your next expedition.");
+  state.inTown=true;
+  state.enemy=null;
+  log("You return to Veyra's Gate. The Fountain of Renewal is restored for your next expedition.");
   save();
-  render();
+  showTown("Your party has returned safely. The fountain will be renewed on the next expedition.");
   return;
  }
  const door=doorAhead();
@@ -410,13 +480,6 @@ function searchRoom(){
  } else log("Dust, stone, and nothing worth carrying.");
  render();
 }
-function rest(){
- if(state.enemy){log("You cannot rest during combat.");return}
- state.party.forEach(m=>{m.hp=Math.min(m.maxhp,m.hp+Math.ceil(m.maxhp*.35));m.mp=Math.min(m.maxmp,m.mp+Math.ceil(m.maxmp*.35))});
- log("The party rests briefly. Distant sounds echo in the halls.");
- if(!inFountainSafeZone()&&!atStairs()&&Math.random()<.25){state.rooms[key()].enemy=true;ensureRoom()}
- render();
-}
 function save(){localStorage.setItem(SAVE_KEY,JSON.stringify(state));log("Game saved on this device.")}
 function load(){
  let s=localStorage.getItem(SAVE_KEY);
@@ -426,23 +489,32 @@ function load(){
  state=loaded;
  if(!state.visited) state.visited={};
  if(!state.openedDoors)state.openedDoors={};
+ if(typeof state.fountainUsed!=="boolean")state.fountainUsed=false;
+ if(typeof state.inTown!=="boolean")state.inTown=false;
+ if(typeof state.expeditions!=="number")state.expeditions=1;
  state.visited[visitKey()]=true;
- ensureRoom();
- log("Saved game restored.");render();
+ $("#startModal").classList.add("hidden");
+ log("Saved game restored.");
+ if(state.inTown)showTown("Your saved party is ready at Veyra's Gate.");
+ else{$("#townModal").classList.add("hidden");ensureRoom();render()}
 }
 function flash(c){let f=$("#flash");f.style.background=c;setTimeout(()=>f.style.background="#0000",110)}
 $("#forward").onclick=move;
 $("#openDoor").onclick=interact;
 $("#turnL").onclick=()=>{if(!blocked()){state.dir=(state.dir+3)%4;render()}};
 $("#turnR").onclick=()=>{if(!blocked()){state.dir=(state.dir+1)%4;render()}};
-$("#attack").onclick=attack; $("#search").onclick=searchRoom; $("#rest").onclick=rest;
+$("#attack").onclick=attack; $("#search").onclick=searchRoom;
 $("#save").onclick=save; $("#load").onclick=load;
+$("#townInn").onclick=stayAtInn;
+$("#enterDungeon").onclick=enterDungeon;
+$("#townSave").onclick=()=>{save();renderTown("Game saved safely at Veyra's Gate.")};
 $("#mapbtn").onclick=()=>{renderMap();$("#mapModal").classList.remove("hidden")};
 $("#closeMap").onclick=()=>$("#mapModal").classList.add("hidden");
 $("#newgame").onclick=()=>{$("#startModal").classList.remove("hidden")};
 $("#begin").onclick=()=>{
- state=newState(); state.visited[visitKey()]=true; $("#startModal").classList.add("hidden"); ensureRoom(); log("You descend beneath Veyra. The gate seals behind you.");render();
+ state=newState(); state.visited[visitKey()]=true; $("#startModal").classList.add("hidden"); log("Your party gathers at Veyra's Gate.");showTown("A new party stands ready for its first expedition.");
 };
+$("#continueGame").onclick=load;
 
 async function loadFloor(){
  try{
@@ -455,7 +527,8 @@ async function loadFloor(){
    return [edgeKey(a[0],a[1],b[0],b[1]),door];
   }));
   $("#begin").disabled=false;
-  $("#begin").textContent="ENTER THE DEPTHS";
+  $("#begin").textContent="BEGIN NEW ADVENTURE";
+  $("#continueGame").disabled=!localStorage.getItem(SAVE_KEY);
   $("#location").textContent=`Floor 1 · ${floorMap.name}`;
  }catch(error){
   $("#begin").textContent="FLOOR FAILED TO LOAD";
