@@ -111,7 +111,7 @@ input,select{width:100%;margin-top:3px;background:#0b0907;color:var(--text);bord
 <body>
 <div id="app">
   <div class="topbar">
-    <div><div class="title">DEPTHS OF VEYRA</div><div class="small">Prototype 0.8 · class abilities</div></div>
+    <div><div class="title">DEPTHS OF VEYRA</div><div class="small">Prototype 0.8.1 · XP balance</div></div>
     <div class="small" id="location">Floor 1 · loading</div>
   </div>
   <div class="main">
@@ -232,10 +232,10 @@ const abilityData={
  Cleric:{name:"Mend",icon:"✚",cost:5,description:"Heal the most wounded conscious member of the party."}
 };
 const enemyTypes=[
- {name:"Cave Rat",icon:"🐀",hp:8,atk:3,gold:[1,5],xp:12},
- {name:"Bone Guard",icon:"💀",hp:15,atk:5,gold:[4,10],xp:20},
- {name:"Ash Goblin",icon:"👺",hp:18,atk:6,gold:[6,14],xp:30},
- {name:"Crypt Shade",icon:"👻",hp:24,atk:7,gold:[9,18],xp:42}
+ {name:"Cave Rat",icon:"🐀",hp:8,atk:3,gold:[1,5],xp:6},
+ {name:"Bone Guard",icon:"💀",hp:15,atk:5,gold:[4,10],xp:10},
+ {name:"Ash Goblin",icon:"👺",hp:18,atk:6,gold:[6,14],xp:15},
+ {name:"Crypt Shade",icon:"👻",hp:24,atk:7,gold:[9,18],xp:21}
 ];
 const MAP_FILE="Floor_01_Tilemap_53_Doors.json";
 const MAP_VERSION="floor-01-objectives-v0.5";
@@ -659,7 +659,7 @@ function load(){
   if(!Number.isFinite(Number(member.xp)))member.xp=xpForLevel(member.level);
   else member.xp=Math.max(0,Number(member.xp));
  });
- if(state.enemy&&!Number.isFinite(Number(state.enemy.xp))){
+ if(state.enemy){
   state.enemy.xp=enemyTypes.find(enemy=>enemy.name===state.enemy.name)?.xp||0;
  }
  state.visited[visitKey()]=true;
