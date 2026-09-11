@@ -102,7 +102,7 @@ input,select{width:100%;margin-top:3px;background:#0b0907;color:var(--text);bord
 <body>
 <div id="app">
   <div class="topbar">
-    <div><div class="title">DEPTHS OF VEYRA</div><div class="small">Prototype 0.6 · town and expeditions</div></div>
+    <div><div class="title">DEPTHS OF VEYRA</div><div class="small">Prototype 0.6.1 · town and autosave</div></div>
     <div class="small" id="location">Floor 1 · loading</div>
   </div>
   <div class="main">
@@ -190,6 +190,7 @@ input,select{width:100%;margin-top:3px;background:#0b0907;color:var(--text);bord
   <p><b>Adventure loop:</b> prepare in town, explore the dungeon, and retreat to the inn when your party is wounded. Defeated monsters stay defeated.</p>
   <button id="begin" disabled style="width:100%;margin-top:4px">LOADING FLOOR…</button>
   <button id="continueGame" class="secondary" disabled style="width:100%;margin-top:8px">CONTINUE SAVED GAME</button>
+  <div class="small" id="saveStatus" style="text-align:center;margin-top:7px">Checking this browser for a saved adventure…</div>
  </div>
 </div>
 
@@ -211,9 +212,28 @@ const enemyTypes=[
 const MAP_FILE="Floor_01_Tilemap_53_Doors.json";
 const MAP_VERSION="floor-01-objectives-v0.5";
 const SAVE_KEY="veyra-save-v0.5";
+const LEGACY_SAVE_KEYS=["veyra-save-v0.4"];
+const COMPATIBLE_MAP_VERSIONS=[MAP_VERSION,"floor-01-53-doors"];
 let floorMap=null;
 let doorByEdge=new Map();
 let state=null;
+
+function findSavedGame(){
+ for(const storageKey of [SAVE_KEY,...LEGACY_SAVE_KEYS]){
+  try{
+   const raw=localStorage.getItem(storageKey);
+   if(!raw)continue;
+   const data=JSON.parse(raw);
+   if(COMPATIBLE_MAP_VERSIONS.includes(data.mapVersion))return {data,storageKey};
+  }catch(error){console.warn("Could not read saved game",error)}
+ }
+ return null;
+}
+function persist(){
+ try{localStorage.setItem(SAVE_KEY,JSON.stringify(state));return true}
+ catch(error){console.warn("Could not save game",error);return false}
+}
+function autosave(){if(state)persist()}
 
 function makeMember(name,cls){
  let c=classData[cls];
@@ -370,7 +390,7 @@ function enterDungeon(){
  state.visited[visitKey()]=true;
  $("#townModal").classList.add("hidden");
  log(`Expedition ${state.expeditions} begins. You pass through the dungeon gate.`);
- ensureRoom();render();
+ ensureRoom();render();autosave();
 }
 function stayAtInn(){
  const needsHealing=state.party.some(m=>m.hp<m.maxhp||m.mp<m.maxmp);
@@ -380,7 +400,7 @@ function stayAtInn(){
  state.gold-=cost;
  state.party.forEach(m=>{m.hp=m.maxhp;m.mp=m.maxmp});
  const message=cost?`The party rests safely and awakens fully restored. The innkeeper collects ${cost} gold.`:"The innkeeper offers novice adventurers a free room. The party awakens fully restored.";
- log(message);render();renderTown(message);
+ log(message);render();renderTown(message);autosave();
 }
 function blocked(){if(state.enemy){log("The enemy blocks your way.");return true}return false}
 function interact(){
@@ -393,7 +413,7 @@ function interact(){
   state.party.forEach(m=>{m.hp=m.maxhp;m.mp=m.maxmp});
   state.fountainUsed=true;
   log("You drink from the Fountain of Renewal. The party is fully restored.");
-  render();
+  render();autosave();
   return;
  }
  if(atStairs()){
@@ -420,7 +440,7 @@ function interact(){
  if(door.locked){log("The door is locked.");return}
  state.openedDoors[door.id]=true;
  log("The door opens with a heavy scrape.");
- render();
+ render();autosave();
 }
 function move(){
  if(blocked()) return;
@@ -436,7 +456,7 @@ function move(){
   return;
  }
  state.x=next.x;state.y=next.y;
- state.steps++; state.visited[visitKey()]=true; ensureRoom(); render();
+ state.steps++; state.visited[visitKey()]=true; ensureRoom(); render();autosave();
 }
 function enemyTurn(){
  if(!state.enemy)return;
@@ -466,7 +486,7 @@ function attack(){
    if(Math.random()<.35){let loot=["Iron Ring","Blue Tonic","Old Map Scrap","Moonstone","Leather Bracers"][Math.floor(Math.random()*5)];state.inv.push(loot);log(`Victory. Found ${g} gold and ${loot}.`)}
    else log(`Victory. Found ${g} gold.`);
  } else enemyTurn();
- render();
+ render();autosave();
 }
 function searchRoom(){
  if(state.enemy){log("Hard to search while something is trying to kill you.");return}
@@ -478,21 +498,21 @@ function searchRoom(){
   let loot=["Silver Vial","Carved Idol","Scroll Fragment","Fine Dagger","Amber Bead"][Math.floor(Math.random()*5)];
   state.inv.push(loot); log(`Hidden cache: ${g} gold and ${loot}.`);
  } else log("Dust, stone, and nothing worth carrying.");
- render();
+ render();autosave();
 }
-function save(){localStorage.setItem(SAVE_KEY,JSON.stringify(state));log("Game saved on this device.")}
+function save(){log(persist()?"Game saved on this device.":"This browser would not allow the game to save.")}
 function load(){
- let s=localStorage.getItem(SAVE_KEY);
- if(!s){log("No saved game found.");return}
- const loaded=JSON.parse(s);
- if(loaded.mapVersion!==MAP_VERSION){log("That save belongs to an older dungeon version. Begin a new game.");return}
- state=loaded;
+ const candidate=findSavedGame();
+ if(!candidate){log("No compatible saved game was found in this browser.");return}
+ state=candidate.data;
+ state.mapVersion=MAP_VERSION;
  if(!state.visited) state.visited={};
  if(!state.openedDoors)state.openedDoors={};
  if(typeof state.fountainUsed!=="boolean")state.fountainUsed=false;
  if(typeof state.inTown!=="boolean")state.inTown=false;
  if(typeof state.expeditions!=="number")state.expeditions=1;
  state.visited[visitKey()]=true;
+ persist();
  $("#startModal").classList.add("hidden");
  log("Saved game restored.");
  if(state.inTown)showTown("Your saved party is ready at Veyra's Gate.");
@@ -501,8 +521,8 @@ function load(){
 function flash(c){let f=$("#flash");f.style.background=c;setTimeout(()=>f.style.background="#0000",110)}
 $("#forward").onclick=move;
 $("#openDoor").onclick=interact;
-$("#turnL").onclick=()=>{if(!blocked()){state.dir=(state.dir+3)%4;render()}};
-$("#turnR").onclick=()=>{if(!blocked()){state.dir=(state.dir+1)%4;render()}};
+$("#turnL").onclick=()=>{if(!blocked()){state.dir=(state.dir+3)%4;render();autosave()}};
+$("#turnR").onclick=()=>{if(!blocked()){state.dir=(state.dir+1)%4;render();autosave()}};
 $("#attack").onclick=attack; $("#search").onclick=searchRoom;
 $("#save").onclick=save; $("#load").onclick=load;
 $("#townInn").onclick=stayAtInn;
@@ -512,7 +532,7 @@ $("#mapbtn").onclick=()=>{renderMap();$("#mapModal").classList.remove("hidden")}
 $("#closeMap").onclick=()=>$("#mapModal").classList.add("hidden");
 $("#newgame").onclick=()=>{$("#startModal").classList.remove("hidden")};
 $("#begin").onclick=()=>{
- state=newState(); state.visited[visitKey()]=true; $("#startModal").classList.add("hidden"); log("Your party gathers at Veyra's Gate.");showTown("A new party stands ready for its first expedition.");
+ state=newState(); state.visited[visitKey()]=true; $("#startModal").classList.add("hidden"); log("Your party gathers at Veyra's Gate.");showTown("A new party stands ready for its first expedition.");autosave();
 };
 $("#continueGame").onclick=load;
 
@@ -528,7 +548,9 @@ async function loadFloor(){
   }));
   $("#begin").disabled=false;
   $("#begin").textContent="BEGIN NEW ADVENTURE";
-  $("#continueGame").disabled=!localStorage.getItem(SAVE_KEY);
+  const saved=findSavedGame();
+  $("#continueGame").disabled=!saved;
+  $("#saveStatus").textContent=saved?"A compatible saved adventure was found in this browser.":"No compatible save was found in this browser. New progress will be saved automatically.";
   $("#location").textContent=`Floor 1 · ${floorMap.name}`;
  }catch(error){
   $("#begin").textContent="FLOOR FAILED TO LOAD";
