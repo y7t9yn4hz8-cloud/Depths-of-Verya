@@ -103,7 +103,7 @@ input,select{width:100%;margin-top:3px;background:#0b0907;color:var(--text);bord
 <body>
 <div id="app">
   <div class="topbar">
-    <div><div class="title">DEPTHS OF VEYRA</div><div class="small">Prototype 0.9.0 · stone dungeon</div></div>
+    <div><div class="title">DEPTHS OF VEYRA</div><div class="small">Prototype 0.9.1 · wall-mounted torches</div></div>
     <div class="small" id="location">Floor 1 · loading</div>
   </div>
   <div class="main">
@@ -412,7 +412,7 @@ function paintWallStrip(context,x,width,top,bottom,hit){
   context.fillRect(x,y,width,3.4);
  }
 }
-function paintWallTorch(context,x,y,scale,time){
+function paintWallTorch(context,x,y,scale,time,lean){
  const flicker=.9+Math.sin(time*.011+x)*.06+Math.sin(time*.027+x*.1)*.04;
  const glow=context.createRadialGradient(x,y,1,x,y,105*scale*flicker);
  glow.addColorStop(0,"rgba(255,199,73,.38)");
@@ -421,12 +421,57 @@ function paintWallTorch(context,x,y,scale,time){
  context.save();context.globalCompositeOperation="screen";context.fillStyle=glow;
  context.beginPath();context.arc(x,y,105*scale*flicker,0,Math.PI*2);context.fill();context.restore();
  context.lineCap="round";context.lineWidth=Math.max(2,4*scale);context.strokeStyle="#70502b";
- context.beginPath();context.moveTo(x,y+12*scale);context.lineTo(x+(x<context.canvas.clientWidth/2?-18:18)*scale,y+48*scale);context.stroke();
+ context.beginPath();context.moveTo(x,y+12*scale);context.lineTo(x+lean*18*scale,y+48*scale);context.stroke();
  context.save();context.translate(x,y);context.scale(flicker,1/flicker);
  const flame=context.createRadialGradient(0,6*scale,1,0,0,22*scale);
  flame.addColorStop(0,"#fff5a1");flame.addColorStop(.28,"#ffd238");flame.addColorStop(.7,"#ff6818");flame.addColorStop(1,"rgba(190,42,4,0)");
  context.fillStyle=flame;context.beginPath();
  context.moveTo(0,-24*scale);context.bezierCurveTo(18*scale,-8*scale,13*scale,17*scale,0,20*scale);context.bezierCurveTo(-14*scale,15*scale,-17*scale,-5*scale,0,-24*scale);context.fill();context.restore();
+}
+const torchWallSides=[
+ {dx:0,dy:-1,ox:.5,oy:.055,nx:0,ny:1},
+ {dx:1,dy:0,ox:.945,oy:.5,nx:-1,ny:0},
+ {dx:0,dy:1,ox:.5,oy:.945,nx:0,ny:-1},
+ {dx:-1,dy:0,ox:.055,oy:.5,nx:1,ny:0}
+];
+function wallHasTorch(x,y,sideIndex){
+ const side=torchWallSides[sideIndex];
+ if(!walkable(x,y)||walkable(x+side.dx,y+side.dy))return false;
+ const hash=Math.abs((x*92821)^(y*68917)^(sideIndex*2833));
+ return hash%6===0;
+}
+function paintProjectedTorches(context,width,height,horizon,depthBuffer,stripWidth,time){
+ if(state.floor!==1)return;
+ const [forwardX,forwardY]=directionVectors[state.dir];
+ const rightX=-forwardY,rightY=forwardX;
+ const playerX=state.x+.5,playerY=state.y+.5;
+ const projection=width/(2*Math.tan(VIEW_FOV/2));
+ const fixtures=[];
+ for(let y=Math.max(0,state.y-10);y<=Math.min(floorMap.height-1,state.y+10);y++){
+  for(let x=Math.max(0,state.x-10);x<=Math.min(floorMap.width-1,state.x+10);x++){
+   for(let sideIndex=0;sideIndex<torchWallSides.length;sideIndex++){
+    if(!wallHasTorch(x,y,sideIndex))continue;
+    const side=torchWallSides[sideIndex];
+    const worldX=x+side.ox,worldY=y+side.oy;
+    if((playerX-worldX)*side.nx+(playerY-worldY)*side.ny<=.03)continue;
+    const offsetX=worldX-playerX,offsetY=worldY-playerY;
+    const depth=offsetX*forwardX+offsetY*forwardY;
+    if(depth<=.18||depth>11.5)continue;
+    const lateral=offsetX*rightX+offsetY*rightY;
+    const screenX=width/2+lateral/depth*projection;
+    if(screenX<-24||screenX>width+24)continue;
+    const bufferIndex=Math.max(0,Math.min(depthBuffer.length-1,Math.floor(screenX/stripWidth)));
+    if(depth>depthBuffer[bufferIndex]+.16)continue;
+    const projectedWallHeight=Math.min(height*2.1,height*.84/depth);
+    const scale=Math.max(.16,Math.min(1.05,projectedWallHeight/280));
+    const screenY=Math.max(34,Math.min(horizon+8,horizon-projectedWallHeight*.17));
+    const lean=lateral<0?-1:1;
+    fixtures.push({screenX,screenY,scale,depth,lean,seed:x*17+y*31+sideIndex*47});
+   }
+  }
+ }
+ fixtures.sort((a,b)=>b.depth-a.depth);
+ fixtures.forEach(torch=>paintWallTorch(context,torch.screenX,torch.screenY,torch.scale,time+torch.seed,torch.lean));
 }
 function drawDungeonScene(time=0){
  if(!floorMap||!state)return;
@@ -446,20 +491,18 @@ function drawDungeonScene(time=0){
  const [forwardX,forwardY]=directionVectors[state.dir];
  const viewAngle=Math.atan2(forwardY,forwardX);
  const stripWidth=2;
+ const depthBuffer=[];
  for(let screenX=0;screenX<width;screenX+=stripWidth){
   const rayAngle=viewAngle-VIEW_FOV/2+VIEW_FOV*(screenX/width);
   const rayX=Math.cos(rayAngle),rayY=Math.sin(rayAngle);
   const hit=castDungeonRay(px,py,rayX,rayY);
   const corrected=Math.max(.08,hit.distance*Math.cos(rayAngle-viewAngle));
+  depthBuffer[Math.floor(screenX/stripWidth)]=corrected;
   const wallHeight=Math.min(height*2.1,height*.84/corrected);
   const top=horizon-wallHeight/2,bottom=horizon+wallHeight/2;
   paintWallStrip(context,screenX,stripWidth+.6,top,bottom,{...hit,distance:corrected});
  }
- if(state.floor===1){
-  const torchScale=Math.max(.78,Math.min(1.15,width/440));
-  paintWallTorch(context,width*.23,height*.34,torchScale,time);
-  paintWallTorch(context,width*.77,height*.34,torchScale,time+147);
- }
+ paintProjectedTorches(context,width,height,horizon,depthBuffer,stripWidth,time);
  const haze=context.createRadialGradient(width/2,horizon,30,width/2,horizon,width*.62);
  haze.addColorStop(0,"rgba(0,0,0,0)");haze.addColorStop(.7,"rgba(0,0,0,.04)");haze.addColorStop(1,"rgba(0,0,0,.52)");
  context.fillStyle=haze;context.fillRect(0,0,width,height);
