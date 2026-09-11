@@ -96,13 +96,22 @@ input,select{width:100%;margin-top:3px;background:#0b0907;color:var(--text);bord
 .maptile.current{background:#d8b968;color:#111;font-size:10px;line-height:12px;text-align:center;font-weight:bold;border-color:#f0d98e}
 .maplegend{font-size:12px;color:var(--muted);margin:8px 0 0;line-height:1.4}
 .mapmodal.hidden{display:none!important}
+.abilitybox{width:min(520px,100%);max-height:90%;overflow:auto;padding:14px;border:1px solid var(--line);border-radius:10px;background:#15120d}
+.abilityintro{font-size:13px;color:var(--muted);line-height:1.4;margin:0 0 10px}
+.abilitylist{display:grid;gap:8px}
+.abilitychoice{width:100%;text-align:left;padding:10px 12px}
+.abilitytop{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:16px}
+.abilityowner{display:block;color:var(--accent);font-size:12px;margin-top:3px}
+.abilitydesc{display:block;color:var(--muted);font-size:12px;font-weight:400;line-height:1.35;margin-top:5px}
+.abilitystate{font-size:11px;color:var(--good);white-space:nowrap}
+.abilitychoice:disabled .abilitystate{color:var(--muted)}
 
 </style>
 </head>
 <body>
 <div id="app">
   <div class="topbar">
-    <div><div class="title">DEPTHS OF VEYRA</div><div class="small">Prototype 0.7 · experience and leveling</div></div>
+    <div><div class="title">DEPTHS OF VEYRA</div><div class="small">Prototype 0.8 · class abilities</div></div>
     <div class="small" id="location">Floor 1 · loading</div>
   </div>
   <div class="main">
@@ -125,9 +134,10 @@ input,select{width:100%;margin-top:3px;background:#0b0907;color:var(--text);bord
         <button id="attack" class="danger">⚔</button>
         <button id="search" class="good">✦</button>
       </div>
-      <div class="controls" style="padding-top:0;grid-template-columns:repeat(4,1fr)">
+      <div class="controls" style="padding-top:0;grid-template-columns:repeat(5,1fr)">
         <button class="secondary" id="save">SAVE</button>
         <button class="secondary" id="load">LOAD</button>
+        <button class="secondary good" id="skills">SKILLS</button>
         <button class="secondary" id="mapbtn">MAP</button>
         <button class="secondary" id="newgame">NEW</button>
       </div>
@@ -140,6 +150,17 @@ input,select{width:100%;margin-top:3px;background:#0b0907;color:var(--text);bord
       <div class="log" id="log"><h3>JOURNAL</h3></div>
     </aside>
   </div>
+</div>
+
+<div class="mapmodal hidden" id="abilityModal">
+ <div class="abilitybox">
+  <div class="maphead">
+   <div><h2>CLASS ABILITIES</h2><div class="small">Abilities consume MP</div></div>
+   <button class="secondary" id="closeAbilities">CLOSE</button>
+  </div>
+  <p class="abilityintro">Choose one character. During battle, that character uses the ability while every other conscious party member makes a normal attack.</p>
+  <div class="abilitylist" id="abilityList"></div>
+ </div>
 </div>
 
 
@@ -187,6 +208,7 @@ input,select{width:100%;margin-top:3px;background:#0b0907;color:var(--text);bord
     <label>Companion name<input id="compName" value="Mira" maxlength="14"></label>
     <label>Companion class<select id="compClass"><option>Cleric</option><option>Warrior</option><option>Ranger</option><option>Mage</option></select></label>
   </div>
+  <p class="small"><b>Class abilities:</b> Warrior—Shield Bash · Ranger—Twin Shot · Mage—Firebolt · Cleric—Mend.</p>
   <p><b>Adventure loop:</b> prepare in town, explore the dungeon, defeat monsters to grow stronger, and retreat to the inn when your party is wounded. Defeated monsters stay defeated.</p>
   <button id="begin" disabled style="width:100%;margin-top:4px">LOADING FLOOR…</button>
   <button id="continueGame" class="secondary" disabled style="width:100%;margin-top:8px">CONTINUE SAVED GAME</button>
@@ -202,6 +224,12 @@ const classData={
  Ranger:{hp:27,mp:8,atk:7,def:4,growth:{hp:6,mp:2,atk:2,def:1}},
  Mage:{hp:19,mp:24,atk:9,def:2,growth:{hp:4,mp:6,atk:3,def:1}},
  Cleric:{hp:25,mp:18,atk:6,def:4,growth:{hp:5,mp:5,atk:1,def:1}}
+};
+const abilityData={
+ Warrior:{name:"Shield Bash",icon:"🛡️",cost:2,description:"Strike the enemy and stagger it, preventing its next attack."},
+ Ranger:{name:"Twin Shot",icon:"🏹",cost:3,description:"Fire two arrows for considerably more damage than a normal attack."},
+ Mage:{name:"Firebolt",icon:"🔥",cost:5,description:"Hurl concentrated flame for heavy magical damage."},
+ Cleric:{name:"Mend",icon:"✚",cost:5,description:"Heal the most wounded conscious member of the party."}
 };
 const enemyTypes=[
  {name:"Cave Rat",icon:"🐀",hp:8,atk:3,gold:[1,5],xp:12},
@@ -411,6 +439,7 @@ function renderTown(message){
 function showTown(message){
  state.inTown=true;
  $("#mapModal").classList.add("hidden");
+ $("#abilityModal").classList.add("hidden");
  $("#townModal").classList.remove("hidden");
  render();
  renderTown(message);
@@ -502,24 +531,104 @@ function enemyTurn(){
  if(t.hp===0) log(`${t.name} falls unconscious.`);
  if(state.party.every(m=>m.hp<=0)){log("The party has fallen. Load a save or begin anew.");}
 }
+function rollBasicHit(member){
+ return Math.max(1,member.atk-2+Math.floor(Math.random()*5));
+}
+function otherPartyDamage(excludedIndex){
+ return state.party.reduce((damage,member,index)=>damage+(index!==excludedIndex&&member.hp>0?rollBasicHit(member):0),0);
+}
+function defeatEnemy(){
+ let e=state.enemy;
+ let g=e.gold[0]+Math.floor(Math.random()*(e.gold[1]-e.gold[0]+1));
+ state.gold+=g;state.enemy=null;state.rooms[key()].cleared=true;
+ if(Math.random()<.35){
+  let loot=["Iron Ring","Blue Tonic","Old Map Scrap","Moonstone","Leather Bracers"][Math.floor(Math.random()*5)];
+  state.inv.push(loot);log(`Victory. Found ${g} gold and ${loot}.`);
+ }else log(`Victory. Found ${g} gold.`);
+ awardExperience(e.xp||0);
+}
 function attack(){
  if(!state.enemy){log("You swing at shadows.");return}
  let attackers=state.party.filter(m=>m.hp>0);
- let dmg=0;
- attackers.forEach(m=>{
-   let hit=Math.max(1,m.atk-2+Math.floor(Math.random()*5));
-   dmg+=hit;
- });
+ let dmg=attackers.reduce((total,member)=>total+rollBasicHit(member),0);
  state.enemy.hp-=dmg; flash("#d8b96855");
  log(`The party deals ${dmg} damage.`);
- if(state.enemy.hp<=0){
-   let e=state.enemy;
-   let g=e.gold[0]+Math.floor(Math.random()*(e.gold[1]-e.gold[0]+1));
-   state.gold+=g; state.enemy=null; state.rooms[key()].cleared=true;
-   if(Math.random()<.35){let loot=["Iron Ring","Blue Tonic","Old Map Scrap","Moonstone","Leather Bracers"][Math.floor(Math.random()*5)];state.inv.push(loot);log(`Victory. Found ${g} gold and ${loot}.`)}
-   else log(`Victory. Found ${g} gold.`);
-   awardExperience(e.xp||0);
- } else enemyTurn();
+ if(state.enemy.hp<=0)defeatEnemy();
+ else enemyTurn();
+ render();autosave();
+}
+function woundedParty(){
+ return state.party.filter(member=>member.hp>0&&member.hp<member.maxhp);
+}
+function abilityAvailability(member){
+ const ability=abilityData[member.cls];
+ if(!ability)return {ready:false,label:"UNAVAILABLE"};
+ if(member.hp<=0)return {ready:false,label:"UNCONSCIOUS"};
+ if(member.mp<ability.cost)return {ready:false,label:"NOT ENOUGH MP"};
+ if(member.cls==="Cleric"&&!woundedParty().length)return {ready:false,label:"NO WOUNDS"};
+ if(member.cls!=="Cleric"&&!state.enemy)return {ready:false,label:"NEEDS ENEMY"};
+ return {ready:true,label:"READY"};
+}
+function renderAbilityModal(){
+ const list=$("#abilityList");
+ list.innerHTML="";
+ state.party.forEach((member,index)=>{
+  const ability=abilityData[member.cls];
+  const status=abilityAvailability(member);
+  const button=document.createElement("button");
+  button.className="abilitychoice";
+  button.disabled=!status.ready;
+  button.innerHTML=`<span class="abilitytop"><span>${ability.icon} ${ability.name}</span><span>${ability.cost} MP</span></span><span class="abilityowner">${member.name} · ${member.cls} Lv.${member.level} · MP ${member.mp}/${member.maxmp}</span><span class="abilitydesc">${ability.description}</span><span class="abilitystate">${status.label}</span>`;
+  button.onclick=()=>useAbility(index);
+  list.appendChild(button);
+ });
+}
+function openAbilities(){
+ renderAbilityModal();
+ $("#abilityModal").classList.remove("hidden");
+}
+function useAbility(memberIndex){
+ const member=state.party[memberIndex];
+ const ability=abilityData[member?.cls];
+ if(!member||!ability)return;
+ const status=abilityAvailability(member);
+ if(!status.ready){log(`${member.name} cannot use ${ability.name}: ${status.label.toLowerCase()}.`);renderAbilityModal();return}
+ member.mp-=ability.cost;
+ const allies=state.enemy?otherPartyDamage(memberIndex):0;
+ if(member.cls==="Cleric"){
+  const target=woundedParty().sort((a,b)=>(b.maxhp-b.hp)-(a.maxhp-a.hp))[0];
+  const healing=10+member.level*3+Math.floor(member.atk/2);
+  const restored=Math.min(healing,target.maxhp-target.hp);
+  target.hp+=restored;
+  log(`${member.name} uses Mend on ${target.name}, restoring ${restored} HP.`);
+  if(state.enemy){
+   if(allies){state.enemy.hp-=allies;flash("#d8b96855");log(`The rest of the party deals ${allies} damage.`)}
+   if(state.enemy.hp<=0)defeatEnemy();else enemyTurn();
+  }
+ }else{
+  let skillDamage=0;
+  let preventsCounter=false;
+  if(member.cls==="Warrior"){
+   skillDamage=Math.max(1,member.atk-1+Math.floor(Math.random()*4));
+   preventsCounter=true;
+   log(`${member.name} uses Shield Bash for ${skillDamage} damage.`);
+  }
+  if(member.cls==="Ranger"){
+   const shot=()=>Math.max(1,Math.floor(member.atk*.75)+Math.floor(Math.random()*4));
+   skillDamage=shot()+shot();
+   log(`${member.name} fires Twin Shot for ${skillDamage} total damage.`);
+  }
+  if(member.cls==="Mage"){
+   skillDamage=member.atk*2+Math.floor(Math.random()*7);
+   log(`${member.name} casts Firebolt for ${skillDamage} damage.`);
+  }
+  if(allies)log(`The rest of the party deals ${allies} damage.`);
+  state.enemy.hp-=skillDamage+allies;flash("#d8b96855");
+  if(state.enemy.hp<=0)defeatEnemy();
+  else if(preventsCounter)log(`${state.enemy.name} staggers and loses its attack.`);
+  else enemyTurn();
+ }
+ $("#abilityModal").classList.add("hidden");
  render();autosave();
 }
 function searchRoom(){
@@ -567,6 +676,8 @@ $("#turnL").onclick=()=>{if(!blocked()){state.dir=(state.dir+3)%4;render();autos
 $("#turnR").onclick=()=>{if(!blocked()){state.dir=(state.dir+1)%4;render();autosave()}};
 $("#attack").onclick=attack; $("#search").onclick=searchRoom;
 $("#save").onclick=save; $("#load").onclick=load;
+$("#skills").onclick=openAbilities;
+$("#closeAbilities").onclick=()=>$("#abilityModal").classList.add("hidden");
 $("#townInn").onclick=stayAtInn;
 $("#enterDungeon").onclick=enterDungeon;
 $("#townSave").onclick=()=>{save();renderTown("Game saved safely at Veyra's Gate.")};
