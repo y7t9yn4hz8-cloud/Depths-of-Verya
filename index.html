@@ -103,7 +103,7 @@ input,select{width:100%;margin-top:3px;background:#0b0907;color:var(--text);bord
 <body>
 <div id="app">
   <div class="topbar">
-    <div><div class="title">DEPTHS OF VEYRA</div><div class="small">Prototype 0.9.2 · fountain courtyard</div></div>
+    <div><div class="title">DEPTHS OF VEYRA</div><div class="small">Prototype 0.9.3 · Veyra's entrance</div></div>
     <div class="small" id="location">Floor 1 · loading</div>
   </div>
   <div class="main">
@@ -326,6 +326,11 @@ function inFountainSafeZone(x=state.x,y=state.y){
 
 const VIEW_FOV=Math.PI/2;
 const directionVectors=[[0,-1],[1,0],[0,1],[-1,0]];
+const entranceDoorImage=new Image();
+entranceDoorImage.src="./entrance-door.webp";
+entranceDoorImage.addEventListener("load",()=>{
+ if(state&&floorMap&&!state.inTown)drawDungeonScene(performance.now());
+});
 function fractional(value){return value-Math.floor(value)}
 function sceneNoise(a,b,c=0){
  const value=Math.sin(a*12.9898+b*78.233+c*37.719)*43758.5453;
@@ -530,6 +535,27 @@ function projectedPointVisible(point,depthBuffer,stripWidth,allowance=.2){
  const bufferIndex=Math.max(0,Math.min(depthBuffer.length-1,Math.floor(point.x/stripWidth)));
  return point.depth<=depthBuffer[bufferIndex]+allowance;
 }
+function paintEntranceDoor(context,width,height,horizon,depthBuffer,stripWidth){
+ const entrance=entranceObject();
+ if(state.floor!==1||!entrance||!entranceDoorImage.complete||!entranceDoorImage.naturalWidth)return;
+ const edgeY=entrance.edge==="south"?entrance.tile[1]+.98:entrance.tile[1]+.5;
+ const point=projectWorldPoint(entrance.tile[0]+.5,edgeY,width,height,horizon);
+ if(!projectedPointVisible(point,depthBuffer,stripWidth,.08))return;
+ let doorHeight=Math.min(height*.91,point.unit*.93);
+ let doorWidth=doorHeight*(entranceDoorImage.naturalWidth/entranceDoorImage.naturalHeight);
+ const maximumWidth=width*.86;
+ if(doorWidth>maximumWidth){doorHeight*=maximumWidth/doorWidth;doorWidth=maximumWidth}
+ const bottom=Math.min(height*.985,point.groundY);
+ const left=point.x-doorWidth/2,top=bottom-doorHeight;
+ if(left>width||left+doorWidth<0||top>height)return;
+ context.save();
+ const glow=context.createRadialGradient(point.x,top+doorHeight*.28,2,point.x,top+doorHeight*.45,doorWidth*.68);
+ glow.addColorStop(0,"rgba(58,159,224,.12)");glow.addColorStop(.5,"rgba(198,122,45,.08)");glow.addColorStop(1,"rgba(0,0,0,0)");
+ context.globalCompositeOperation="screen";context.fillStyle=glow;context.fillRect(left-doorWidth*.15,top-doorHeight*.08,doorWidth*1.3,doorHeight*1.16);
+ context.globalCompositeOperation="source-over";
+ context.drawImage(entranceDoorImage,left,top,doorWidth,doorHeight);
+ context.restore();
+}
 const courtyardBenches=[
  {a:[1.12,1.9],b:[1.12,3.2]},
  {a:[1.8,1.12],b:[2.95,1.12]},
@@ -633,6 +659,7 @@ function drawDungeonScene(time=0){
   paintWallStrip(context,screenX,stripWidth+.6,top,bottom,{...hit,distance:corrected,courtyard});
  }
  if(courtyard)paintCourtyardBenches(context,width,height,horizon,depthBuffer,stripWidth);
+ paintEntranceDoor(context,width,height,horizon,depthBuffer,stripWidth);
  paintProjectedTorches(context,width,height,horizon,depthBuffer,stripWidth,time);
  if(courtyard)paintFountainOfRenewal(context,width,height,horizon,depthBuffer,stripWidth,time);
  const haze=context.createRadialGradient(width/2,horizon,30,width/2,horizon,width*.62);
