@@ -32,6 +32,7 @@ body{display:flex;justify-content:center}
 .scene{position:relative;flex:1;min-height:260px;background:#070706;overflow:hidden;isolation:isolate}
 .scene-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;background:#090806}
 .scene-vignette{position:absolute;inset:0;z-index:4;pointer-events:none;box-shadow:inset 0 0 58px 24px #000b;background:linear-gradient(180deg,#0005 0,#0000 28%,#0000 68%,#0007 100%)}
+.scene.daylight .scene-vignette{box-shadow:inset 0 0 35px 10px #0002;background:linear-gradient(180deg,#0000 70%,#0003 100%)}
 .door{display:none}
 .caption{position:absolute;z-index:8;left:8px;right:8px;bottom:8px;text-align:center;background:#0b0906e8;border:1px solid #715c34;padding:7px;border-radius:6px;font-size:13px;box-shadow:0 4px 16px #000}
 .combat-flash{position:absolute;inset:0;pointer-events:none;background:#8a201a00;transition:.12s}
@@ -103,7 +104,7 @@ input,select{width:100%;margin-top:3px;background:#0b0907;color:var(--text);bord
 <body>
 <div id="app">
   <div class="topbar">
-    <div><div class="title">DEPTHS OF VEYRA</div><div class="small">Prototype 0.9.5 · courtyard fountain</div></div>
+    <div><div class="title">DEPTHS OF VEYRA</div><div class="small">Prototype 0.9.6 · daylight courtyard</div></div>
     <div class="small" id="location">Floor 1 · loading</div>
   </div>
   <div class="main">
@@ -328,6 +329,21 @@ const VIEW_FOV=Math.PI/2;
 const directionVectors=[[0,-1],[1,0],[0,1],[-1,0]];
 const entranceDoorImage=new Image();
 const fountainImage=new Image();
+let fountainDaylightImage=null;
+function daylightFountainAsset(){
+ if(fountainDaylightImage)return fountainDaylightImage;
+ const canvas=document.createElement("canvas");
+ canvas.width=fountainImage.naturalWidth;canvas.height=fountainImage.naturalHeight;
+ const ctx=canvas.getContext("2d");ctx.drawImage(fountainImage,0,0);
+ const pixels=ctx.getImageData(0,0,canvas.width,canvas.height);
+ for(let i=0;i<pixels.data.length;i+=4){
+  const d=pixels.data,luma=d[i]*.2126+d[i+1]*.7152+d[i+2]*.0722;
+  d[i]=(.55*d[i]+.45*luma)*.79;
+  d[i+1]=(.55*d[i+1]+.45*luma)*.81;
+  d[i+2]=(.55*d[i+2]+.45*luma)*.83;
+ }
+ ctx.putImageData(pixels,0,0);fountainDaylightImage=canvas;return canvas;
+}
 fountainImage.src="./fountain-renewal.webp";
 fountainImage.addEventListener("load",()=>{
  if(state&&floorMap&&!state.inTown)drawDungeonScene(performance.now());
@@ -368,31 +384,19 @@ function castDungeonRay(px,py,rayX,rayY){
 }
 function paintCourtyardSky(context,width,horizon){
  const sky=context.createLinearGradient(0,0,0,horizon);
- sky.addColorStop(0,"#03132f");sky.addColorStop(.55,"#092855");sky.addColorStop(1,"#182a3c");
+ sky.addColorStop(0,"#8da4b7");sky.addColorStop(.55,"#b5c4ce");sky.addColorStop(1,"#d1d9dc");
  context.fillStyle=sky;context.fillRect(0,0,width,horizon);
- const directionShift=state.dir*width*.19;
- for(let i=0;i<58;i++){
-  const x=((sceneNoise(i,41)*width*1.45-directionShift)%(width*1.45)+width*1.45)%(width*1.45)-width*.2;
-  const y=8+sceneNoise(i,73)*horizon*.7;
-  const size=sceneNoise(i,19)>.82?1.7:1;
-  context.fillStyle=`rgba(210,229,255,${.25+sceneNoise(i,31)*.6})`;
-  context.fillRect(x,y,size,size);
- }
- const moonPositions=[.24,.72,1.16,-.17];
- const moonX=moonPositions[state.dir]*width;
- if(moonX>-25&&moonX<width+25){
-  const moonY=horizon*.25,moonRadius=Math.max(10,width*.035);
-  const moonGlow=context.createRadialGradient(moonX,moonY,2,moonX,moonY,moonRadius*3.1);
-  moonGlow.addColorStop(0,"rgba(236,246,255,.82)");moonGlow.addColorStop(.28,"rgba(157,204,255,.3)");moonGlow.addColorStop(1,"rgba(80,145,255,0)");
-  context.fillStyle=moonGlow;context.beginPath();context.arc(moonX,moonY,moonRadius*3.1,0,Math.PI*2);context.fill();
-  context.fillStyle="#dce9ef";context.beginPath();context.arc(moonX,moonY,moonRadius,0,Math.PI*2);context.fill();
-  context.fillStyle="rgba(92,117,135,.3)";context.beginPath();context.arc(moonX-moonRadius*.25,moonY-moonRadius*.12,moonRadius*.23,0,Math.PI*2);context.fill();
- }
- context.save();context.globalAlpha=.13;context.fillStyle="#8da8be";
- for(let i=0;i<7;i++){
-  const cloudX=((sceneNoise(i,91)*width*1.5-directionShift*.45)%(width*1.5)+width*1.5)%(width*1.5)-width*.25;
-  const cloudY=horizon*(.38+sceneNoise(i,92)*.37);
-  context.beginPath();context.ellipse(cloudX,cloudY,width*(.09+sceneNoise(i,93)*.11),horizon*.045,0,0,Math.PI*2);context.fill();
+ // Broad soft cloud layers, with no visible sun or hard-edged cloud discs.
+ context.save();context.beginPath();context.rect(0,0,width,horizon);context.clip();
+ for(let i=0;i<32;i++){
+  const x=sceneNoise(i,91)*width*1.4-width*.2;
+  const y=sceneNoise(i,92)*horizon;
+  const radius=width*(.12+sceneNoise(i,93)*.19);
+  context.save();context.translate(x,y);context.scale(1,.48);
+  const cloud=context.createRadialGradient(0,0,0,0,0,radius);
+  const shade=i%3===0?"120,139,155":"239,243,242";
+  cloud.addColorStop(0,`rgba(${shade},.21)`);cloud.addColorStop(.45,`rgba(${shade},.12)`);cloud.addColorStop(1,`rgba(${shade},0)`);
+  context.fillStyle=cloud;context.fillRect(-radius,-radius,radius*2,radius*2);context.restore();
  }
  context.restore();
 }
@@ -404,7 +408,7 @@ function paintDungeonBackground(context,width,height,horizon,courtyard){
   context.fillStyle=ceiling;context.fillRect(0,0,width,horizon);
  }
  const floor=context.createLinearGradient(0,horizon,0,height);
- floor.addColorStop(0,courtyard?"#131c22":"#17130e");floor.addColorStop(.55,courtyard?"#28343a":"#2c251a");floor.addColorStop(1,courtyard?"#111b21":"#17120c");
+ floor.addColorStop(0,courtyard?"#7f8688":"#17130e");floor.addColorStop(.55,courtyard?"#92999a":"#2c251a");floor.addColorStop(1,courtyard?"#777e80":"#17120c");
  context.fillStyle=floor;context.fillRect(0,horizon,width,height-horizon);
  context.lineWidth=1;
  for(let row=1;row<=9;row++){
@@ -446,9 +450,9 @@ function paintWallStrip(context,x,width,top,bottom,hit){
    const block=.86+sceneNoise(row,Math.floor(hit.texture*6),hit.hitX+hit.hitY)*.22;
    red=100*block;green=94*block;blue=78*block;
   }
-  if(hit.courtyard&&hit.kind!=="door"){red*=.84;green*=.97;blue*=1.18}
-  const illumination=(.28+.72*distanceLight)*sideLight*variation;
-  const fog=Math.min(.72,hit.distance/17);
+  if(hit.courtyard&&hit.kind!=="door"){red*=1.72;green*=1.83;blue*=2.2}
+  const illumination=hit.courtyard?(hit.side===0?.88:1)*variation:(.28+.72*distanceLight)*sideLight*variation;
+  const fog=hit.courtyard?Math.min(.12,hit.distance/70):Math.min(.72,hit.distance/17);
   red=red*illumination*(1-fog)+8*fog;
   green=green*illumination*(1-fog)+8*fog;
   blue=blue*illumination*(1-fog)+7*fog;
@@ -576,9 +580,9 @@ function paintStoneBench(context,bench,width,height,horizon,depthBuffer,stripWid
  const firstTop=first.groundY-first.unit*.24,secondTop=second.groundY-second.unit*.24;
  const firstBottom=firstTop+Math.max(3,first.unit*.09),secondBottom=secondTop+Math.max(3,second.unit*.09);
  context.save();
- context.fillStyle="#777268";context.strokeStyle="#272621";context.lineWidth=Math.max(1,middle.unit*.018);
+ context.fillStyle="#a6a8a1";context.strokeStyle="#555952";context.lineWidth=Math.max(1,middle.unit*.018);
  context.beginPath();context.moveTo(first.x,firstTop);context.lineTo(second.x,secondTop);context.lineTo(second.x,secondBottom);context.lineTo(first.x,firstBottom);context.closePath();context.fill();context.stroke();
- context.strokeStyle="#4b4941";context.lineWidth=Math.max(3,middle.unit*.075);
+ context.strokeStyle="#858981";context.lineWidth=Math.max(3,middle.unit*.075);
  context.beginPath();context.moveTo(first.x,firstBottom);context.lineTo(first.x,first.groundY);context.moveTo(second.x,secondBottom);context.lineTo(second.x,second.groundY);context.stroke();
  context.strokeStyle="rgba(173,188,194,.24)";context.lineWidth=1;
  context.beginPath();context.moveTo(first.x,firstTop);context.lineTo(second.x,secondTop);context.stroke();
@@ -670,7 +674,7 @@ function paintFountainOfRenewal(context,width,height,horizon,depthBuffer,stripWi
   context.save();context.globalCompositeOperation="screen";context.fillStyle=glow;
   context.fillRect(left-size*.1,top,size*1.2,size);context.restore();
  }
- context.drawImage(fountainImage,left,top,size,size);
+ context.drawImage(daylightFountainAsset(),left,top,size,size);
  if(!state.fountainUsed)paintFountainWater(context,left,top,size,time);
  context.restore();
 }
@@ -688,6 +692,7 @@ function drawDungeonScene(time=0){
  context.clearRect(0,0,width,height);
  const horizon=height*.47;
  const courtyard=inFountainSafeZone();
+ $("#scene").classList.toggle("daylight",courtyard);
  paintDungeonBackground(context,width,height,horizon,courtyard);
  const px=state.x+.5,py=state.y+.5;
  const [forwardX,forwardY]=directionVectors[state.dir];
@@ -702,14 +707,17 @@ function drawDungeonScene(time=0){
   depthBuffer[Math.floor(screenX/stripWidth)]=corrected;
   const wallHeight=Math.min(height*2.1,height*.84/corrected);
   const top=horizon-wallHeight/2,bottom=horizon+wallHeight/2;
-  paintWallStrip(context,screenX,stripWidth+.6,top,bottom,{...hit,distance:corrected,courtyard});
+  const contactX=px+hit.distance*rayX-rayX*.025;
+  const contactY=py+hit.distance*rayY-rayY*.025;
+  const daylightWall=courtyard&&inFountainSafeZone(Math.floor(contactX),Math.floor(contactY));
+  paintWallStrip(context,screenX,stripWidth+.6,top,bottom,{...hit,distance:corrected,courtyard:daylightWall});
  }
  if(courtyard)paintCourtyardBenches(context,width,height,horizon,depthBuffer,stripWidth);
  paintEntranceDoor(context,width,height,horizon,depthBuffer,stripWidth);
  paintProjectedTorches(context,width,height,horizon,depthBuffer,stripWidth,time);
  if(courtyard)paintFountainOfRenewal(context,width,height,horizon,depthBuffer,stripWidth,time);
  const haze=context.createRadialGradient(width/2,horizon,30,width/2,horizon,width*.62);
- haze.addColorStop(0,"rgba(0,0,0,0)");haze.addColorStop(.7,"rgba(0,0,0,.04)");haze.addColorStop(1,courtyard?"rgba(0,0,0,.34)":"rgba(0,0,0,.52)");
+ haze.addColorStop(0,"rgba(0,0,0,0)");haze.addColorStop(.7,"rgba(0,0,0,.04)");haze.addColorStop(1,courtyard?"rgba(0,0,0,.12)":"rgba(0,0,0,.52)");
  context.fillStyle=haze;context.fillRect(0,0,width,height);
 }
 
@@ -797,7 +805,7 @@ function render(){
  $("#landmarkSprite").classList.toggle("hidden",!stairsHere);
  $("#landmarkSprite").textContent=stairsHere?"⤵":"";
  $("#openDoor").textContent=fountainHere?(state.fountainUsed?"EMPTY":"DRINK"):stairsHere?"DESCEND":entranceHere?"EXIT":"OPEN";
- $("#caption").textContent=state.enemy?`${state.enemy.name}: ${state.enemy.hp}/${state.enemy.maxhp} HP`:fountainHere?(state.fountainUsed?"The fountain is still. Its power will return after your next trip to the surface.":"The Fountain of Renewal fills the courtyard with quiet blue light."):stairsHere?"Stone steps spiral downward into the darkness of Floor 02.":entranceHere?"The dungeon entrance leads back to the safety of the surface.":closedDoor?"A closed door blocks the passage ahead.":inFountainSafeZone()?"Moonlight spills across the Fountain of Renewal.":r.desc;
+ $("#caption").textContent=state.enemy?`${state.enemy.name}: ${state.enemy.hp}/${state.enemy.maxhp} HP`:fountainHere?(state.fountainUsed?"The fountain is still. Its power will return after your next trip to the surface.":"Clear water cascades through the weathered stone bowls."):stairsHere?"Stone steps spiral downward into the darkness of Floor 02.":entranceHere?"The dungeon entrance leads back to the safety of the surface.":closedDoor?"A closed door blocks the passage ahead.":inFountainSafeZone()?"Soft daylight falls across the Fountain of Renewal.":r.desc;
  if(state.enemy){
    $("#enemySprite").classList.remove("hidden");
    $("#enemyIcon").textContent=state.enemy.icon; $("#enemyName").textContent=state.enemy.name;
