@@ -103,7 +103,7 @@ input,select{width:100%;margin-top:3px;background:#0b0907;color:var(--text);bord
 <body>
 <div id="app">
   <div class="topbar">
-    <div><div class="title">DEPTHS OF VEYRA</div><div class="small">Prototype 0.9.3 · Veyra's entrance</div></div>
+    <div><div class="title">DEPTHS OF VEYRA</div><div class="small">Prototype 0.9.4 · Fountain of Renewal</div></div>
     <div class="small" id="location">Floor 1 · loading</div>
   </div>
   <div class="main">
@@ -327,6 +327,11 @@ function inFountainSafeZone(x=state.x,y=state.y){
 const VIEW_FOV=Math.PI/2;
 const directionVectors=[[0,-1],[1,0],[0,1],[-1,0]];
 const entranceDoorImage=new Image();
+const fountainImage=new Image();
+fountainImage.src="./fountain-renewal.webp";
+fountainImage.addEventListener("load",()=>{
+ if(state&&floorMap&&!state.inTown)drawDungeonScene(performance.now());
+});
 entranceDoorImage.src="./entrance-door.webp";
 entranceDoorImage.addEventListener("load",()=>{
  if(state&&floorMap&&!state.inTown)drawDungeonScene(performance.now());
@@ -583,49 +588,88 @@ function paintCourtyardBenches(context,width,height,horizon,depthBuffer,stripWid
  const ordered=courtyardBenches.map(bench=>({bench,point:projectWorldPoint((bench.a[0]+bench.b[0])/2,(bench.a[1]+bench.b[1])/2,width,height,horizon)})).filter(item=>item.point).sort((a,b)=>b.point.depth-a.point.depth);
  ordered.forEach(item=>paintStoneBench(context,item.bench,width,height,horizon,depthBuffer,stripWidth));
 }
-function paintFountainOfRenewal(context,width,height,horizon,depthBuffer,stripWidth,time){
+// Artwork coordinates are normalized to the square fountain sprite.
+// The map center is expressed in tile indices; add half a tile for world space.
+function fountainPlacement(width,height,horizon){
  const fountain=fountainObject();
- if(!fountain)return;
- let worldX=fountain.tile_center[0],worldY=fountain.tile_center[1];
- const playerX=state.x+.5,playerY=state.y+.5;
- if(Math.hypot(worldX-playerX,worldY-playerY)<.22){
-  const [forwardX,forwardY]=directionVectors[state.dir];
-  worldX=playerX+forwardX*.78;worldY=playerY+forwardY*.78;
- }
- const point=projectWorldPoint(worldX,worldY,width,height,horizon);
- if(!projectedPointVisible(point,depthBuffer,stripWidth,.45))return;
- const baseY=Math.min(height*.9,point.groundY);
- const basinWidth=Math.min(width*1.18,point.unit*1.52);
- const basinHeight=Math.max(18,point.unit*.3);
- const active=!state.fountainUsed;
- const pulse=1+Math.sin(time*.004)*.035;
+ if(!fountain||state.floor!==1||!inFountainSafeZone())return null;
+ const worldX=fountain.tile_center[0]+.5,worldY=fountain.tile_center[1]+.5;
+ const [fx,fy]=directionVectors[state.dir];
+ const dx=worldX-state.x-.5,dy=worldY-state.y-.5;
+ const depth=dx*fx+dy*fy,lateral=dx*(-fy)+dy*fx;
+ if(depth<=.05)return null;
+ const angle=Math.atan2(lateral,depth);
+ if(Math.abs(angle)>VIEW_FOV*.5+.25)return null;
+ // A gentle near-distance limit keeps the whole basin readable on a phone.
+ const displayDepth=Math.max(1.3,depth);
+ const captionHeight=$("#caption").getBoundingClientRect().height||42;
+ const safeBottom=height-captionHeight-15;
+ const size=Math.min(width*.73,safeBottom*.88,height*.91/displayDepth);
+ if(size<3)return null;
+ let center=width/2+Math.atan2(lateral,displayDepth)/VIEW_FOV*width;
+ // At the four drinking tiles, keep the rim inside the viewport.
+ if(Math.hypot(dx,dy)<1)center=Math.max(size*.51+8,Math.min(width-size*.51-8,center));
+ const foot=Math.min(safeBottom,horizon+height*.34/displayDepth);
+ return {left:center-size/2,top:foot-size,size,depth,worldX,worldY};
+}
+function paintFountainWater(context,left,top,size,time){
+ context.save();context.translate(left,top);context.scale(size,size);
+ context.lineCap="round";context.globalCompositeOperation="screen";
+ // Short cascades between bowl lips and the actual receiving water surfaces.
+ const streams=[
+  [.383,.216,.332,.393],[.621,.216,.672,.393],
+  [.271,.427,.204,.690],[.733,.427,.796,.690]
+ ];
+ streams.forEach(([sx,sy,ex,ey],i)=>{
+  const sway=Math.sin(time*.003+i)*.002;
+  context.beginPath();context.moveTo(sx,sy);
+  context.bezierCurveTo(sx+sway,sy+.035,ex,ey-.065,ex,ey);
+  context.strokeStyle="rgba(52,155,203,.28)";context.lineWidth=.012;context.stroke();
+  context.strokeStyle="rgba(139,223,243,.7)";context.lineWidth=.0036;context.stroke();
+  context.strokeStyle="rgba(225,251,255,.8)";context.lineWidth=.0012;context.stroke();
+  // Falling glints follow exactly the same cubic curve as the cascade.
+  for(let j=0;j<4;j++){
+   const t=(time*.00048+j*.25+i*.11)%1,u=1-t;
+   const x=u*u*u*sx+3*u*u*t*(sx+sway)+3*u*t*t*ex+t*t*t*ex;
+   const y=u*u*u*sy+3*u*u*t*(sy+.035)+3*u*t*t*(ey-.065)+t*t*t*ey;
+   context.fillStyle="rgba(222,251,255,.78)";
+   context.beginPath();context.ellipse(x,y,.0016,.005,0,0,Math.PI*2);context.fill();
+  }
+  for(let j=0;j<2;j++){
+   const t=(time*.0006+j*.5+i*.2)%1;
+   context.strokeStyle=`rgba(172,232,246,${(1-t)*.5})`;context.lineWidth=.0015;
+   context.beginPath();context.ellipse(ex,ey+.003,.004+t*.026,.0015+t*.007,0,0,Math.PI*2);context.stroke();
+  }
+ });
+ const pulse=.8+Math.sin(time*.002)*.12;
+ const crystal=context.createRadialGradient(.503,.076,.001,.503,.076,.06);
+ crystal.addColorStop(0,`rgba(167,234,255,${pulse*.4})`);crystal.addColorStop(1,"rgba(50,155,230,0)");
+ context.fillStyle=crystal;context.fillRect(.44,.01,.13,.14);
+ context.restore();
+}
+function paintFountainOfRenewal(context,width,height,horizon,depthBuffer,stripWidth,time){
+ if(!fountainImage.complete||!fountainImage.naturalWidth)return;
+ const placement=fountainPlacement(width,height,horizon);
+ if(!placement)return;
+ const {left,top,size,depth}=placement;
  context.save();
- const groundGlow=context.createRadialGradient(point.x,baseY-basinHeight*.1,2,point.x,baseY-basinHeight*.1,basinWidth*.72*pulse);
- groundGlow.addColorStop(0,active?"rgba(50,184,255,.31)":"rgba(44,108,140,.15)");groundGlow.addColorStop(.45,active?"rgba(27,125,210,.14)":"rgba(25,73,96,.07)");groundGlow.addColorStop(1,"rgba(15,65,130,0)");
- context.globalCompositeOperation="screen";context.fillStyle=groundGlow;context.beginPath();context.ellipse(point.x,baseY,basinWidth*.72,basinHeight*1.7,0,0,Math.PI*2);context.fill();context.globalCompositeOperation="source-over";
- const stone=context.createLinearGradient(point.x-basinWidth/2,0,point.x+basinWidth/2,0);
- stone.addColorStop(0,"#36383a");stone.addColorStop(.24,"#868782");stone.addColorStop(.52,"#575b5c");stone.addColorStop(.78,"#93918a");stone.addColorStop(1,"#303236");
- context.fillStyle=stone;context.strokeStyle="#202227";context.lineWidth=Math.max(1,point.unit*.018);
- context.beginPath();context.ellipse(point.x,baseY,basinWidth*.45,basinHeight*.28,0,0,Math.PI*2);context.fill();context.stroke();
- const rimY=baseY-basinHeight*.48;
- context.beginPath();context.moveTo(point.x-basinWidth*.49,rimY);context.lineTo(point.x-basinWidth*.43,baseY);context.quadraticCurveTo(point.x,baseY+basinHeight*.22,point.x+basinWidth*.43,baseY);context.lineTo(point.x+basinWidth*.49,rimY);context.closePath();context.fill();context.stroke();
- context.fillStyle="#83837d";context.beginPath();context.ellipse(point.x,rimY,basinWidth*.51,basinHeight*.3,0,0,Math.PI*2);context.fill();context.stroke();
- const water=context.createRadialGradient(point.x,rimY,1,point.x,rimY,basinWidth*.48);
- water.addColorStop(0,active?"#8ce8ff":"#568493");water.addColorStop(.42,active?"#2a9fe1":"#3c6878");water.addColorStop(1,active?"#0c4e83":"#263f48");
- context.fillStyle=water;context.beginPath();context.ellipse(point.x,rimY,basinWidth*.43,basinHeight*.19,0,0,Math.PI*2);context.fill();
- const pedestalWidth=Math.max(8,basinWidth*.13),pedestalTop=rimY-point.unit*.56;
- context.fillStyle=stone;context.fillRect(point.x-pedestalWidth/2,pedestalTop,pedestalWidth,rimY-pedestalTop);context.strokeRect(point.x-pedestalWidth/2,pedestalTop,pedestalWidth,rimY-pedestalTop);
- context.fillStyle="#777a79";context.beginPath();context.ellipse(point.x,pedestalTop,pedestalWidth*1.55,Math.max(4,basinHeight*.14),0,0,Math.PI*2);context.fill();context.stroke();
- if(active){
-  context.strokeStyle="#6bd8ff";context.shadowColor="#2bbcff";context.shadowBlur=Math.max(4,point.unit*.035);context.lineWidth=Math.max(1.5,point.unit*.018);context.lineCap="round";
-  [-.85,0,.85].forEach((stream,index)=>{
-   const startX=point.x+stream*pedestalWidth*.62;
-   const endX=point.x+stream*basinWidth*.27;
-   const sway=Math.sin(time*.006+index*1.7)*point.unit*.018;
-   context.beginPath();context.moveTo(startX,pedestalTop);context.bezierCurveTo(startX+sway,pedestalTop+point.unit*.12,endX-sway,rimY-point.unit*.12,endX,rimY);context.stroke();
-  });
-  context.shadowBlur=0;
+ // Clip each visible column against walls; no sprite showing through masonry.
+ context.beginPath();
+ for(let x=Math.max(0,Math.floor(left-size*.1));x<Math.min(width,left+size*1.1);x+=stripWidth){
+  if(depth<=depthBuffer[Math.floor(x/stripWidth)]+.1)context.rect(x,0,stripWidth+.1,height);
  }
+ context.clip();
+ const shadow=context.createRadialGradient(left+size*.5,top+size*.96,1,left+size*.5,top+size*.96,size*.5);
+ shadow.addColorStop(0,"rgba(0,0,0,.55)");shadow.addColorStop(1,"rgba(0,0,0,0)");
+ context.fillStyle=shadow;context.beginPath();context.ellipse(left+size*.5,top+size*.96,size*.51,size*.075,0,0,Math.PI*2);context.fill();
+ if(!state.fountainUsed){
+  const glow=context.createRadialGradient(left+size*.5,top+size*.75,1,left+size*.5,top+size*.75,size*.62);
+  glow.addColorStop(0,"rgba(44,145,202,.14)");glow.addColorStop(1,"rgba(30,120,200,0)");
+  context.save();context.globalCompositeOperation="screen";context.fillStyle=glow;
+  context.fillRect(left-size*.1,top,size*1.2,size);context.restore();
+ }
+ context.drawImage(fountainImage,left,top,size,size);
+ if(!state.fountainUsed)paintFountainWater(context,left,top,size,time);
  context.restore();
 }
 function drawDungeonScene(time=0){
