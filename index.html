@@ -103,7 +103,7 @@ input,select{width:100%;margin-top:3px;background:#0b0907;color:var(--text);bord
 <body>
 <div id="app">
   <div class="topbar">
-    <div><div class="title">DEPTHS OF VEYRA</div><div class="small">Prototype 0.9.4 · Fountain of Renewal</div></div>
+    <div><div class="title">DEPTHS OF VEYRA</div><div class="small">Prototype 0.9.5 · courtyard fountain</div></div>
     <div class="small" id="location">Floor 1 · loading</div>
   </div>
   <div class="main">
@@ -602,15 +602,17 @@ function fountainPlacement(width,height,horizon){
  if(Math.abs(angle)>VIEW_FOV*.5+.25)return null;
  // A gentle near-distance limit keeps the whole basin readable on a phone.
  const displayDepth=Math.max(1.3,depth);
- const captionHeight=$("#caption").getBoundingClientRect().height||42;
- const safeBottom=height-captionHeight-15;
+ // Reserve a constant caption area: changing DRINK to EMPTY must not move the base.
+ const safeBottom=height-76;
  const size=Math.min(width*.73,safeBottom*.88,height*.91/displayDepth);
  if(size<3)return null;
  let center=width/2+Math.atan2(lateral,displayDepth)/VIEW_FOV*width;
- // At the four drinking tiles, keep the rim inside the viewport.
- if(Math.hypot(dx,dy)<1)center=Math.max(size*.51+8,Math.min(width-size*.51-8,center));
- const foot=Math.min(safeBottom,horizon+height*.34/displayDepth);
- return {left:center-size/2,top:foot-size,size,depth,worldX,worldY};
+ // At the six drinking tiles, keep the rim inside the viewport.
+ if(Math.hypot(dx,dy)<1.3)center=Math.max(size*.51+8,Math.min(width-size*.51-8,center));
+ // Match the wall renderer's floor projection. The sprite's actual stone bottom
+ // is at 97% of its canvas; its transparent margin is not the contact point.
+ const foot=Math.min(safeBottom,horizon+height*.42/depth);
+ return {left:center-size/2,top:foot-size*.97,size,depth,worldX,worldY,foot};
 }
 function paintFountainWater(context,left,top,size,time){
  context.save();context.translate(left,top);context.scale(size,size);
@@ -659,9 +661,9 @@ function paintFountainOfRenewal(context,width,height,horizon,depthBuffer,stripWi
   if(depth<=depthBuffer[Math.floor(x/stripWidth)]+.1)context.rect(x,0,stripWidth+.1,height);
  }
  context.clip();
- const shadow=context.createRadialGradient(left+size*.5,top+size*.96,1,left+size*.5,top+size*.96,size*.5);
- shadow.addColorStop(0,"rgba(0,0,0,.55)");shadow.addColorStop(1,"rgba(0,0,0,0)");
- context.fillStyle=shadow;context.beginPath();context.ellipse(left+size*.5,top+size*.96,size*.51,size*.075,0,0,Math.PI*2);context.fill();
+ // Tight contact darkening tucked under the stone footprint, not a floating oval.
+ context.fillStyle="rgba(0,0,0,.24)";
+ context.beginPath();context.ellipse(left+size*.5,top+size*.885,size*.463,size*.085,0,0,Math.PI*2);context.fill();
  if(!state.fountainUsed){
   const glow=context.createRadialGradient(left+size*.5,top+size*.75,1,left+size*.5,top+size*.75,size*.62);
   glow.addColorStop(0,"rgba(44,145,202,.14)");glow.addColorStop(1,"rgba(30,120,200,0)");

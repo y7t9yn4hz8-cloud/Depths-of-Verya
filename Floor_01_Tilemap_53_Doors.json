@@ -69,9 +69,11 @@
       "type": "fountain",
       "tile_center": [
         3.5,
-        3.5
+        3
       ],
       "interaction_tiles": [
+        [3, 2],
+        [4, 2],
         [3, 3],
         [4, 3],
         [3, 4],
@@ -79,7 +81,7 @@
       ],
       "safe_zone_bounds": [1, 1, 6, 5],
       "blocks_movement": false,
-      "notes": "Fountain of Renewal in the large upper-left safe chamber."
+      "notes": "Fountain of Renewal centered in the safe chamber: world position (4, 3.5), midway across bounds [1,1,6,5]. Six adjacent drinking tiles surround the center."
     },
     {
       "id": "stairs_down_01",
