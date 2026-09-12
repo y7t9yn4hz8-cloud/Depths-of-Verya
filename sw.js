@@ -1,4 +1,4 @@
-const CACHE="veyra-v0.9.7";
+const CACHE="veyra-v0.9.8";
 const ASSETS=["./","./index.html","./manifest.webmanifest","./icon-180.png","./icon-192.png","./icon-512.png","./entrance-door.webp","./fountain-renewal.webp","./dungeon-door-standard.webp","./dungeon-door-reinforced.webp","./Floor_01_Game_Map_53_Doors.png","./Floor_01_Tilemap_53_Doors.json"];
 self.addEventListener("install",e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS))));
 self.addEventListener("activate",e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k))))));

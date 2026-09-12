@@ -104,7 +104,7 @@ input,select{width:100%;margin-top:3px;background:#0b0907;color:var(--text);bord
 <body>
 <div id="app">
   <div class="topbar">
-    <div><div class="title">DEPTHS OF VEYRA</div><div class="small">Prototype 0.9.7 · dungeon doors</div></div>
+    <div><div class="title">DEPTHS OF VEYRA</div><div class="small">Prototype 0.9.8 · stone courtyard benches</div></div>
     <div class="small" id="location">Floor 1 · loading</div>
   </div>
   <div class="main">
@@ -589,31 +589,163 @@ function paintEntranceDoor(context,width,height,horizon,depthBuffer,stripWidth){
  context.restore();
 }
 const courtyardBenches=[
- {a:[1.12,1.9],b:[1.12,3.2]},
- {a:[1.8,1.12],b:[2.95,1.12]},
- {a:[4.55,1.12],b:[5.75,1.12]},
- {a:[4.65,5.88],b:[5.85,5.88]}
+ {a:[1.25,1.9],b:[1.25,3.2]},
+ {a:[1.8,1.25],b:[2.95,1.25]},
+ {a:[4.55,1.25],b:[5.75,1.25]},
+ {a:[4.65,5.75],b:[5.85,5.75]}
 ];
-function paintStoneBench(context,bench,width,height,horizon,depthBuffer,stripWidth){
- const middleX=(bench.a[0]+bench.b[0])/2,middleY=(bench.a[1]+bench.b[1])/2;
- const middle=projectWorldPoint(middleX,middleY,width,height,horizon);
- const first=projectWorldPoint(bench.a[0],bench.a[1],width,height,horizon);
- const second=projectWorldPoint(bench.b[0],bench.b[1],width,height,horizon);
- if(!first||!second||!projectedPointVisible(middle,depthBuffer,stripWidth,.12))return;
- const firstTop=first.groundY-first.unit*.24,secondTop=second.groundY-second.unit*.24;
- const firstBottom=firstTop+Math.max(3,first.unit*.09),secondBottom=secondTop+Math.max(3,second.unit*.09);
- context.save();
- context.fillStyle="#a6a8a1";context.strokeStyle="#555952";context.lineWidth=Math.max(1,middle.unit*.018);
- context.beginPath();context.moveTo(first.x,firstTop);context.lineTo(second.x,secondTop);context.lineTo(second.x,secondBottom);context.lineTo(first.x,firstBottom);context.closePath();context.fill();context.stroke();
- context.strokeStyle="#858981";context.lineWidth=Math.max(3,middle.unit*.075);
- context.beginPath();context.moveTo(first.x,firstBottom);context.lineTo(first.x,first.groundY);context.moveTo(second.x,secondBottom);context.lineTo(second.x,second.groundY);context.stroke();
- context.strokeStyle="rgba(173,188,194,.24)";context.lineWidth=1;
- context.beginPath();context.moveTo(first.x,firstTop);context.lineTo(second.x,secondTop);context.stroke();
- context.restore();
+let benchMaterials=null,benchMesh=null;
+function stoneBenchMaterials(){
+ if(benchMaterials)return benchMaterials;
+ const result={};
+ for(const kind of ["stone","trim","end","support"]){
+  const tile=document.createElement("canvas");tile.width=512;tile.height=256;
+  const c=tile.getContext("2d");
+  c.fillStyle="#999b90";c.fillRect(0,0,512,256);
+  // Deterministic mineral mottling, pores and faint stone veins.
+  for(let i=0;i<9000;i++){
+   const x=sceneNoise(i,17)*512,y=sceneNoise(i,23)*256,r=sceneNoise(i,31);
+   c.fillStyle=r>.5?"rgba(219,217,200,.055)":"rgba(45,52,45,.045)";
+   c.fillRect(x,y,1+r*6,1+r*4);
+  }
+  for(let i=0;i<22;i++){
+   c.beginPath();
+   const x=sceneNoise(i,53)*512,y=sceneNoise(i,61)*256;
+   c.moveTo(x,y);c.bezierCurveTo(x+14,y+5,x+31,y-7,x+45,y+12);
+   c.strokeStyle="rgba(61,65,56,.13)";c.lineWidth=.5+sceneNoise(i,71);c.stroke();
+  }
+  if(kind==="trim"||kind==="end"){
+   const count=kind==="trim"?10:3,spacing=512/count;
+   // Recessed oval/egg-and-dart border: shaded groove and worn raised lip.
+   for(let i=0;i<count;i++){
+    const x=(i+.5)*spacing;
+    for(const [offset,color]of [[3,"rgba(224,223,205,.65)"],[0,"rgba(45,50,44,.6)"]]){
+     c.strokeStyle=color;c.lineWidth=3;
+     c.beginPath();c.ellipse(x+offset,128+offset,spacing*.37,86,0,0,Math.PI*2);c.stroke();
+     c.beginPath();c.ellipse(x+offset,128+offset,spacing*.25,65,0,0,Math.PI*2);c.stroke();
+    }
+   }
+  }
+  if(kind==="support"){
+   for(const [offset,color]of [[4,"rgba(226,224,207,.65)"],[0,"rgba(43,51,44,.65)"]]){
+    c.save();c.translate(offset,offset);c.strokeStyle=color;c.lineWidth=5;
+    for(const sign of [-1,1]){
+     c.beginPath();c.moveTo(256,226);
+     c.bezierCurveTo(256+sign*30,140,256+sign*155,170,256+sign*140,66);
+     c.bezierCurveTo(256+sign*120,20,256+sign*49,40,256+sign*67,82);c.stroke();
+     c.beginPath();c.moveTo(256,220);c.bezierCurveTo(256+sign*105,170,256+sign*32,118,256,42);c.stroke();
+    }
+    c.restore();
+   }
+  }
+  result[kind]=tile;
+ }
+ benchMaterials=result;return result;
+}
+function buildBenchMesh(){
+ if(benchMesh)return benchMesh;
+ const faces=[];
+ for(const bench of courtyardBenches){
+  const cx=(bench.a[0]+bench.b[0])/2,cy=(bench.a[1]+bench.b[1])/2;
+  const length=Math.hypot(bench.b[0]-bench.a[0],bench.b[1]-bench.a[1]);
+  const ux=(bench.b[0]-bench.a[0])/length,uy=(bench.b[1]-bench.a[1])/length;
+  const point=(u,v,z)=>({x:cx+u*ux-v*uy,y:cy+u*uy+v*ux,z:z*.8});
+  // Octagonal cross-sections bevel the slab corners and pedestal bases.
+  const ring=(u,halfLength,halfWidth,z)=>{
+   const bevel=Math.min(.025,halfWidth*.22,halfLength*.22);
+   return [[-halfLength+bevel,-halfWidth],[halfLength-bevel,-halfWidth],[halfLength,-halfWidth+bevel],[halfLength,halfWidth-bevel],[halfLength-bevel,halfWidth],[-halfLength+bevel,halfWidth],[-halfLength,halfWidth-bevel],[-halfLength,-halfWidth+bevel]].map(([a,b])=>point(u+a,b,z));
+  };
+  function surface(vertices,material){
+   // Surface normal is used for hidden-face removal and daylight shading.
+   const [a,b,c]=vertices;
+   const ab=[b.x-a.x,b.y-a.y,b.z-a.z],ac=[c.x-a.x,c.y-a.y,c.z-a.z];
+   const n=[ab[1]*ac[2]-ab[2]*ac[1],ab[2]*ac[0]-ab[0]*ac[2],ab[0]*ac[1]-ab[1]*ac[0]];
+   const magnitude=Math.hypot(...n)||1;
+   faces.push({vertices,material,normal:n.map(v=>v/magnitude)});
+  }
+  function solid(u,levels,carved=false){
+   const rings=levels.map(([hl,hw,z])=>ring(u,hl,hw,z));
+   for(let k=0;k<rings.length-1;k++)for(let i=0;i<8;i++){
+    const next=(i+1)%8,a=rings[k][i],b=rings[k][next],d=rings[k+1][i],c=rings[k+1][next];
+    let material="stone";
+    if(carved&&k===1&&(i%2===0))material=levels.length===4?(i===0||i===4?"trim":"end"):"support";
+    // Subdivide long faces to limit texture distortion at oblique angles.
+    const steps=Math.max(1,Math.ceil(Math.hypot(b.x-a.x,b.y-a.y)/.18));
+    const mix=(p,q,t)=>({x:p.x+(q.x-p.x)*t,y:p.y+(q.y-p.y)*t,z:p.z+(q.z-p.z)*t});
+    for(let s=0;s<steps;s++){
+     const t=s/steps,t1=(s+1)/steps;
+     surface([{...mix(a,b,t),u:t,v:1},{...mix(a,b,t1),u:t1,v:1},{...mix(d,c,t1),u:t1,v:0},{...mix(d,c,t),u:t,v:0}],material);
+    }
+   }
+   const top=rings[rings.length-1],last=levels[levels.length-1];
+   surface(top.map(p=>({...p,u:((p.x-cx)*ux+(p.y-cy)*uy-u+last[0])/(2*last[0]),v:(-(p.x-cx)*uy+(p.y-cy)*ux+last[1])/(2*last[1])})),"stone");
+  }
+  // Plinths touch z=0; no detached shadow or floating rounded line legs.
+  for(const u of [-length*.31,length*.31]){
+   solid(u,[[.16,.20,0],[.17,.21,.025],[.17,.21,.065],[.135,.175,.085]]);
+   solid(u,[[.125,.16,.085],[.11,.145,.11],[.075,.125,.22],[.12,.17,.325],[.14,.18,.345]],true);
+  }
+  solid(0,[[length/2,.215,.345],[length/2+.035,.24,.365],[length/2+.035,.24,.43],[length/2+.015,.22,.455]],true);
+ }
+ benchMesh=faces;return faces;
+}
+function clipBenchNear(vertices){
+ const output=[];
+ for(let i=0;i<vertices.length;i++){
+  const a=vertices[i],b=vertices[(i+1)%vertices.length],insideA=a.depth>=.08,insideB=b.depth>=.08;
+  if(insideA)output.push(a);
+  if(insideA!==insideB){
+   const t=(.08-a.depth)/(b.depth-a.depth),p={};
+   for(const key of ["depth","lateral","z","u","v"])p[key]=a[key]+(b[key]-a[key])*t;
+   output.push(p);
+  }
+ }
+ return output;
+}
+function paintBenchTriangle(context,texture,p){
+ const [a,b,c]=p;
+ const sx=a.u*texture.width,sy=a.v*texture.height;
+ const bx=(b.u-a.u)*texture.width,by=(b.v-a.v)*texture.height;
+ const cx=(c.u-a.u)*texture.width,cy=(c.v-a.v)*texture.height;
+ const determinant=bx*cy-cx*by;
+ if(Math.abs(determinant)<.0001)return;
+ const ax=((b.x-a.x)*cy-(c.x-a.x)*by)/determinant;
+ const ay=((b.y-a.y)*cy-(c.y-a.y)*by)/determinant;
+ const dx=((c.x-a.x)*bx-(b.x-a.x)*cx)/determinant;
+ const dy=((c.y-a.y)*bx-(b.y-a.y)*cx)/determinant;
+ context.save();context.beginPath();context.moveTo(a.x,a.y);context.lineTo(b.x,b.y);context.lineTo(c.x,c.y);context.closePath();context.clip();
+ context.transform(ax,ay,dx,dy,a.x-ax*sx-dx*sy,a.y-ay*sx-dy*sy);
+ context.drawImage(texture,0,0);context.restore();
 }
 function paintCourtyardBenches(context,width,height,horizon,depthBuffer,stripWidth){
- const ordered=courtyardBenches.map(bench=>({bench,point:projectWorldPoint((bench.a[0]+bench.b[0])/2,(bench.a[1]+bench.b[1])/2,width,height,horizon)})).filter(item=>item.point).sort((a,b)=>b.point.depth-a.point.depth);
- ordered.forEach(item=>paintStoneBench(context,item.bench,width,height,horizon,depthBuffer,stripWidth));
+ const materials=stoneBenchMaterials(),[fx,fy]=directionVectors[state.dir],px=state.x+.5,py=state.y+.5;
+ const visible=[];
+ for(const face of buildBenchMesh()){
+  const a=face.vertices[0],n=face.normal;
+  if(n[0]*(px-a.x)+n[1]*(py-a.y)+n[2]*(.5-a.z)<=0)continue;
+  const camera=face.vertices.map(p=>({depth:(p.x-px)*fx+(p.y-py)*fy,lateral:(p.x-px)*(-fy)+(p.y-py)*fx,z:p.z,u:p.u,v:p.v}));
+  const clipped=clipBenchNear(camera);
+  if(clipped.length<3)continue;
+  const projected=clipped.map(p=>({...p,x:width/2+Math.atan2(p.lateral,p.depth)/VIEW_FOV*width,y:horizon+(.5-p.z)*height*.84/p.depth}));
+  if(projected.every(p=>p.x<0)||projected.every(p=>p.x>width)||projected.every(p=>p.y>height))continue;
+  visible.push({face,projected,depth:clipped.reduce((s,p)=>s+p.depth,0)/clipped.length});
+ }
+ visible.sort((a,b)=>b.depth-a.depth);
+ for(const {face,projected,depth}of visible){
+  context.save();context.beginPath();
+  const min=Math.max(0,Math.floor(Math.min(...projected.map(p=>p.x))/stripWidth)*stripWidth);
+  const max=Math.min(width,Math.max(...projected.map(p=>p.x)));
+  const near=Math.min(...projected.map(p=>p.depth));
+  for(let x=min;x<max;x+=stripWidth)if(near<=depthBuffer[Math.floor(x/stripWidth)]+.03)context.rect(x,0,stripWidth+.1,height);
+  context.clip();
+  context.beginPath();projected.forEach((p,i)=>i?context.lineTo(p.x,p.y):context.moveTo(p.x,p.y));context.closePath();
+  context.fillStyle="#91958c";context.fill();
+  for(let i=1;i<projected.length-1;i++)paintBenchTriangle(context,materials[face.material],[projected[0],projected[i],projected[i+1]]);
+  const n=face.normal,shade=Math.max(.02,.23-n[2]*.20+n[0]*.04+n[1]*.03);
+  context.beginPath();projected.forEach((p,i)=>i?context.lineTo(p.x,p.y):context.moveTo(p.x,p.y));context.closePath();
+  context.fillStyle=`rgba(26,32,27,${shade})`;context.fill();
+  context.restore();
+ }
 }
 // Artwork coordinates are normalized to the square fountain sprite.
 // The map center is expressed in tile indices; add half a tile for world space.
