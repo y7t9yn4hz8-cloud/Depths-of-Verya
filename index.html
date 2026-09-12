@@ -104,7 +104,7 @@ input,select{width:100%;margin-top:3px;background:#0b0907;color:var(--text);bord
 <body>
 <div id="app">
   <div class="topbar">
-    <div><div class="title">DEPTHS OF VEYRA</div><div class="small">Prototype 0.9.6 · daylight courtyard</div></div>
+    <div><div class="title">DEPTHS OF VEYRA</div><div class="small">Prototype 0.9.7 · dungeon doors</div></div>
     <div class="small" id="location">Floor 1 · loading</div>
   </div>
   <div class="main">
@@ -353,6 +353,15 @@ entranceDoorImage.addEventListener("load",()=>{
  if(state&&floorMap&&!state.inTown)drawDungeonScene(performance.now());
 });
 function fractional(value){return value-Math.floor(value)}
+const standardDoorImage=new Image();
+const reinforcedDoorImage=new Image();
+standardDoorImage.src="./dungeon-door-standard.webp";
+reinforcedDoorImage.src="./dungeon-door-reinforced.webp";
+// Source rectangles exclude the presentation backgrounds. Both frames are square topped.
+const dungeonDoorArt={
+ standard_door:{image:standardDoorImage,crop:[124/1024,104/1536,777/1024,1345/1536]},
+ reinforced_door:{image:reinforcedDoorImage,crop:[116/1024,100/1536,790/1024,1348/1536]}
+};
 function sceneNoise(a,b,c=0){
  const value=Math.sin(a*12.9898+b*78.233+c*37.719)*43758.5453;
  return fractional(Math.abs(value));
@@ -368,19 +377,19 @@ function castDungeonRay(px,py,rayX,rayY){
  const stepX=rayX<0?-1:1,stepY=rayY<0?-1:1;
  let sideX=(rayX<0?px-mapX:mapX+1-px)*deltaX;
  let sideY=(rayY<0?py-mapY:mapY+1-py)*deltaY;
- let distance=18,side=0,kind="wall",hitX=mapX,hitY=mapY;
+ let distance=18,side=0,kind="wall",hitX=mapX,hitY=mapY,doorId=null,doorType=null;
  for(let depth=0;depth<48;depth++){
   const previousX=mapX,previousY=mapY;
   if(sideX<sideY){distance=sideX;sideX+=deltaX;mapX+=stepX;side=0}
   else{distance=sideY;sideY+=deltaY;mapY+=stepY;side=1}
   const door=closedDoorOnEdge(previousX,previousY,mapX,mapY);
-  if(door){kind="door";hitX=mapX;hitY=mapY;break}
+  if(door){kind="door";doorId=door.id;doorType=door.type;hitX=mapX;hitY=mapY;break}
   if(!walkable(mapX,mapY)){kind="wall";hitX=mapX;hitY=mapY;break}
  }
  const contact=side===0?py+distance*rayY:px+distance*rayX;
  let texture=fractional(contact);
  if((side===0&&rayX>0)||(side===1&&rayY<0))texture=1-texture;
- return {distance,side,kind,texture,hitX,hitY};
+ return {distance,side,kind,texture,hitX,hitY,doorId,doorType};
 }
 function paintCourtyardSky(context,width,horizon){
  const sky=context.createLinearGradient(0,0,0,horizon);
@@ -430,6 +439,20 @@ function paintDungeonBackground(context,width,height,horizon,courtyard){
 }
 function paintWallStrip(context,x,width,top,bottom,hit){
  const wallHeight=Math.max(1,bottom-top);
+ if(hit.kind==="door"){
+  const art=dungeonDoorArt[hit.doorType]||dungeonDoorArt.standard_door;
+  const image=art.image;
+  if(image.complete&&image.naturalWidth){
+   const [cx,cy,cw,ch]=art.crop;
+   const sourceWidth=cw*image.naturalWidth,sourceHeight=ch*image.naturalHeight;
+   const sx=cx*image.naturalWidth+Math.min(.999,hit.texture)*(sourceWidth-1);
+   context.drawImage(image,sx,cy*image.naturalHeight,1,sourceHeight,x,top,width,wallHeight);
+   // Dim artwork with the same environment, without washing out the ironwork.
+   const shade=hit.courtyard?.12:Math.min(.66,.22+hit.distance*.035+(hit.side===0?.06:0));
+   context.fillStyle=`rgba(4,5,7,${shade})`;context.fillRect(x,top,width,wallHeight);
+   return;
+  }
+ }
  const distanceLight=Math.max(.18,1-hit.distance/12);
  const sideLight=hit.side===0?.78:1;
  const variation=.9+sceneNoise(hit.hitX,hit.hitY)*.18;

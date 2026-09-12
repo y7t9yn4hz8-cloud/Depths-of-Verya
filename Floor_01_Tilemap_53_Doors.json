@@ -541,7 +541,7 @@
     },
     {
       "id": "door_27",
-      "type": "standard_door",
+      "type": "reinforced_door",
       "between_tiles": [
         [
           38,
@@ -660,7 +660,7 @@
     },
     {
       "id": "door_34",
-      "type": "standard_door",
+      "type": "reinforced_door",
       "between_tiles": [
         [
           34,
