@@ -83,6 +83,7 @@ input,select{width:100%;margin-top:3px;background:#0b0907;color:var(--text);bord
 .maphead h2{margin:0;color:var(--accent);font-size:19px}
 .mapwrap{width:100%;max-height:62vh;overflow:auto;border:1px solid #4d422d;background:#000;padding:6px;border-radius:6px}
 #dungeonMap{display:grid;grid-template-columns:repeat(40,14px);grid-auto-rows:14px;width:max-content;background:#000}
+.maptile.hazard{color:#ff7169;font-weight:bold}
 .maptile{width:14px;height:14px;background:#000;border:1px solid #050505}
 .maptile.seen{background:#4d493e;border-color:#66604f}
 .maptile.landmark{background:#31525a;color:#d8f4ff;font-size:10px;line-height:12px;text-align:center;font-weight:bold}
@@ -104,7 +105,7 @@ input,select{width:100%;margin-top:3px;background:#0b0907;color:var(--text);bord
 <body>
 <div id="app">
   <div class="topbar">
-    <div><div class="title">DEPTHS OF VEYRA</div><div class="small">Prototype 0.9.8 · stone courtyard benches</div></div>
+    <div><div class="title">DEPTHS OF VEYRA</div><div class="small">Prototype 0.9.9 · dungeon knowledge</div></div>
     <div class="small" id="location">Floor 1 · loading</div>
   </div>
   <div class="main">
@@ -122,10 +123,11 @@ input,select{width:100%;margin-top:3px;background:#0b0907;color:var(--text);bord
         <button id="turnL">↶</button>
         <button id="forward">▲</button>
         <button id="turnR">↷</button>
-        <button id="openDoor" class="good">OPEN</button>
+        <button id="inspect" class="good" title="Inspect the direction you face">LOOK</button>
         <button id="attack" class="danger">⚔</button>
         <button id="search" class="good">✦</button>
       </div>
+      <div id="interactionControls" class="controls hidden" style="grid-template-columns:1fr"><button id="interact" class="good hidden">INTERACT</button></div>
       <div class="controls" style="padding-top:0;grid-template-columns:repeat(5,1fr)">
         <button class="secondary" id="save">SAVE</button>
         <button class="secondary" id="load">LOAD</button>
@@ -163,7 +165,7 @@ input,select{width:100%;margin-top:3px;background:#0b0907;color:var(--text);bord
    <button class="secondary" id="closeMap">CLOSE</button>
   </div>
   <div class="mapwrap"><div id="dungeonMap" aria-label="Explored dungeon map"></div></div>
-  <div class="maplegend">Black = unexplored or solid rock · gray = explored floor · gold arrow = your position and facing direction. Floor 01 is 40 × 40 tiles.</div>
+  <div class="maplegend">Black = unexplored or solid rock · gray = explored floor · red ! = known hazard · gold edges = known doors · gold arrow = position and facing. While Lost, your arrow is hidden and new exploration is not plotted. Floor 01 is 40 × 40 tiles.</div>
  </div>
 </div>
 
@@ -208,6 +210,7 @@ input,select{width:100%;margin-top:3px;background:#0b0907;color:var(--text);bord
  </div>
 </div>
 
+<script src="./dungeon-knowledge.js"></script>
 <script>
 const $=s=>document.querySelector(s);
 const dirs=["North","East","South","West"];
@@ -288,13 +291,14 @@ function awardExperience(amount){
 
 function makeMember(name,cls){
  let c=classData[cls];
- return {name,cls,level:1,xp:0,hp:c.hp,maxhp:c.hp,mp:c.mp,maxmp:c.mp,atk:c.atk,def:c.def};
+ return {name,cls,level:1,xp:0,hp:c.hp,maxhp:c.hp,mp:c.mp,maxmp:c.mp,atk:c.atk,def:c.def,perception:DungeonKnowledge.defaults.perception};
 }
 function newState(){
  const entrance=floorMap.objects.find(o=>o.type==="entrance")?.tile||[2,39];
  return {
   mapVersion:MAP_VERSION,floor:1,x:entrance[0],y:entrance[1],dir:0,steps:0,gold:12,
   party:[makeMember($("#leaderName").value||"Alden",$("#leaderClass").value),makeMember($("#compName").value||"Mira",$("#compClass").value)],
+  lost:false,knowledge:{version:1,hazards:{},landmarks:{},doors:{}},
   inv:["Rusty Key","2× Ration"],visited:{[`1:${entrance[0]},${entrance[1]}`]:true},openedDoors:{},fountainUsed:false,expeditions:0,inTown:true,enemy:null,rooms:{}
  };
 }
@@ -310,6 +314,35 @@ function tileAhead(){
 function doorAhead(){
  const next=tileAhead();
  return doorByEdge.get(edgeKey(state.x,state.y,next.x,next.y))||null;
+}
+function inspectDirection(manual=false){
+ return DungeonKnowledge.detect(state,floorMap,{manual,notify:log,
+  clear:(ax,ay,bx,by)=>walkable(bx,by)&&!closedDoorOnEdge(ax,ay,bx,by)});
+}
+function inspectAhead(){
+ if(blocked())return;
+ if(!inspectDirection(true))log("You finish inspecting the way ahead.");
+ render();autosave();
+}
+function reorientParty(ability=false){
+ const changed=DungeonKnowledge.reorient(state,floorMap,{ability,notify:log});
+ if(changed){render();autosave()}
+ return changed;
+}
+// Future abilities can call reorientParty(true) after validating their cost/check.
+function learnCurrentTile(){DungeonKnowledge.explore(state,floorMap)}
+function resolveTileHazards(){
+ DungeonKnowledge.trigger(state,floorMap,{notify:log,relocate:(destination,hazard)=>{
+  // A future floor loader can implement cross-floor falls through this hook.
+  if((destination.floor??state.floor)!==state.floor || !Array.isArray(destination.tile) || !walkable(...destination.tile)){
+   log("The destination of this hazard is not available yet.");return false;
+  }
+  [state.x,state.y]=destination.tile;state.enemy=null;
+  log(hazard.type==='pit'?"You fall into the pit.":"The teleporter carries you elsewhere.");
+  return true;
+ }});
+ DungeonKnowledge.reorient(state,floorMap,{notify:log});
+ learnCurrentTile();
 }
 function stairsObject(){return floorMap.objects.find(o=>o.type==="stairs_down")}
 function fountainObject(){return floorMap.objects.find(o=>o.type==="fountain")}
@@ -910,7 +943,7 @@ function renderMap(){
  const map=$("#dungeonMap");
  map.innerHTML="";
  map.style.gridTemplateColumns=`repeat(${floorMap.width},14px)`;
- $("#mapFloor").textContent=`Floor ${state.floor} · ${state.x},${state.y}`;
+ $("#mapFloor").textContent=state.lost?`Lost on Floor ${state.floor} · ???`:`Floor ${state.floor} · ${state.x},${state.y}`;
  const arrows=["▲","▶","▼","◀"];
  for(let y=0;y<floorMap.height;y++){
   for(let x=0;x<floorMap.width;x++){
@@ -923,7 +956,18 @@ function renderMap(){
    if(state.visited&&state.visited[visitKey(x,y)]&&atStairs(x,y)){
     d.classList.add("landmark");d.textContent="▼";
    }
-   if(x===state.x && y===state.y){
+   for(const [id,h] of Object.entries(state.knowledge.hazards)){
+    if(id.startsWith(`${state.floor}:`) && h.mapped && h.tile[0]===x && h.tile[1]===y){
+     d.classList.add("hazard");d.textContent="!";d.title=`Known ${h.type}`;
+    }
+   }
+   for(const door of floorMap.doors){
+    if(!state.knowledge.doors[DungeonKnowledge.objectKey(state,door)])continue;
+    const [a,b]=door.between_tiles;
+    const other=a[0]===x&&a[1]===y?b:b[0]===x&&b[1]===y?a:null;
+    if(other){const side=other[0]>x?'Right':other[0]<x?'Left':other[1]>y?'Bottom':'Top';d.style[`border${side}`]='2px solid #bda15d'}
+   }
+   if(!state.lost && x===state.x && y===state.y){
     d.classList.add("current");
     d.textContent=arrows[state.dir];
    }
@@ -931,6 +975,7 @@ function renderMap(){
   }
  }
  requestAnimationFrame(()=>{
+  if(state.lost)return;
   const wrap=map.parentElement;
   const cx=state.x*14,cy=state.y*14;
   wrap.scrollLeft=Math.max(0,cx-wrap.clientWidth/2);
@@ -939,7 +984,7 @@ function renderMap(){
 }
 
 function render(){
- $("#location").textContent=`Floor ${state.floor} · ${state.x},${state.y} · ${dirs[state.dir]}`;
+ $("#location").textContent=state.lost?`Lost on Floor ${state.floor} · ??? · Facing ???`:`Floor ${state.floor} · ${state.x},${state.y} · ${dirs[state.dir]}`;
  $("#gold").textContent=state.gold+" gold";
  $("#party").innerHTML=state.party.map(m=>{
   const xp=xpProgress(m);
@@ -947,7 +992,7 @@ function render(){
   <div class="member">
    <div class="name"><b>${m.name}</b><span>${m.cls} Lv.${m.level}</span></div>
    <div class="bars"><div class="bar"><div class="fill hp" style="width:${100*m.hp/m.maxhp}%"></div></div><div class="bar"><div class="fill mp" style="width:${100*m.mp/m.maxmp}%"></div></div></div>
-   <div class="stats">HP ${m.hp}/${m.maxhp} · MP ${m.mp}/${m.maxmp} · ATK ${m.atk} · DEF ${m.def}<br>XP ${xp.earned}/${xp.needed} to Lv.${m.level+1}</div>
+   <div class="stats">HP ${m.hp}/${m.maxhp} · MP ${m.mp}/${m.maxmp} · ATK ${m.atk} · DEF ${m.def} · PER ${m.perception}<br>XP ${xp.earned}/${xp.needed} to Lv.${m.level+1}</div>
   </div>`}).join("");
  $("#inventory").innerHTML=state.inv.slice(0,8).map(i=>`<div class="inv">${i}</div>`).join("") || `<div class="inv">Empty</div>`;
  let r=state.rooms[key()]||seededRoom(state.x,state.y);
@@ -959,8 +1004,11 @@ function render(){
  $("#door").classList.toggle("hidden",!closedDoor);
  $("#landmarkSprite").classList.toggle("hidden",!stairsHere);
  $("#landmarkSprite").textContent=stairsHere?"⤵":"";
- $("#openDoor").textContent=fountainHere?(state.fountainUsed?"EMPTY":"DRINK"):stairsHere?"DESCEND":entranceHere?"EXIT":"OPEN";
- $("#caption").textContent=state.enemy?`${state.enemy.name}: ${state.enemy.hp}/${state.enemy.maxhp} HP`:fountainHere?(state.fountainUsed?"The fountain is still. Its power will return after your next trip to the surface.":"Clear water cascades through the weathered stone bowls."):stairsHere?"Stone steps spiral downward into the darkness of Floor 02.":entranceHere?"The dungeon entrance leads back to the safety of the surface.":closedDoor?"A closed door blocks the passage ahead.":inFountainSafeZone()?"Soft daylight falls across the Fountain of Renewal.":r.desc;
+ const specialDoor=closedDoor&&!DungeonKnowledge.automaticDoor(door);
+ $("#interactionControls").classList.toggle("hidden",!(fountainHere||stairsHere||entranceHere||specialDoor));
+ $("#interact").classList.toggle("hidden",!(fountainHere||stairsHere||entranceHere||specialDoor));
+ $("#interact").textContent=fountainHere?(state.fountainUsed?"EMPTY":"DRINK"):stairsHere?"DESCEND":entranceHere?"EXIT":"INTERACT";
+ $("#caption").textContent=state.enemy?`${state.enemy.name}: ${state.enemy.hp}/${state.enemy.maxhp} HP`:fountainHere?(state.fountainUsed?"The fountain is still. Its power will return after your next trip to the surface.":"Clear water cascades through the weathered stone bowls."):stairsHere?"Stone steps spiral downward into the darkness of Floor 02.":entranceHere?"The dungeon entrance leads back to the safety of the surface.":closedDoor?(DungeonKnowledge.automaticDoor(door)?"A closed door stands ahead. Move forward to pass through.":"A special barrier blocks the passage ahead."):inFountainSafeZone()?"Soft daylight falls across the Fountain of Renewal.":r.desc;
  if(state.enemy){
    $("#enemySprite").classList.remove("hidden");
    $("#enemyIcon").textContent=state.enemy.icon; $("#enemyName").textContent=state.enemy.name;
@@ -994,7 +1042,7 @@ function enterDungeon(){
  state.inTown=false;
  state.x=entrance[0];state.y=entrance[1];state.dir=0;state.enemy=null;
  state.expeditions=(state.expeditions||0)+1;
- state.visited[visitKey()]=true;
+ state.lost=false;learnCurrentTile();inspectDirection();
  $("#townModal").classList.add("hidden");
  log(`Expedition ${state.expeditions} begins. You pass through the dungeon gate.`);
  ensureRoom();render();autosave();
@@ -1042,10 +1090,12 @@ function interact(){
   return;
  }
  const door=doorAhead();
- if(!door){log("There is no door ahead.");return}
+ if(!door || DungeonKnowledge.automaticDoor(door))return;
  if(state.openedDoors[door.id]){log("That door is already open.");return}
  if(door.locked){log("The door is locked.");return}
+ if(door.sealed||door.jammed||door.scripted||door.requiresInteraction){log("This barrier needs a special means of opening.");return}
  state.openedDoors[door.id]=true;
+ if(!state.lost)state.knowledge.doors[DungeonKnowledge.objectKey(state,door)]=true;
  log("The door opens with a heavy scrape.");
  render();autosave();
 }
@@ -1057,13 +1107,19 @@ function move(){
   return;
  }
  const door=doorAhead();
- if(door&&!state.openedDoors[door.id]){
-  log("A closed door blocks your way. Tap OPEN.");
+ if(door&&!DungeonKnowledge.automaticDoor(door)&&!state.openedDoors[door.id]){
+  log("A special barrier blocks your way. Use INTERACT.");
   render();
   return;
  }
+ if(door){
+  if(!state.lost)state.knowledge.doors[DungeonKnowledge.objectKey(state,door)]=true;
+  // Movement is instantaneous; open for passage, then close before the next view.
+  if(DungeonKnowledge.automaticDoor(door))state.openedDoors[door.id]=true;
+ }
  state.x=next.x;state.y=next.y;
- state.steps++; state.visited[visitKey()]=true; ensureRoom(); render();autosave();
+ if(door&&DungeonKnowledge.automaticDoor(door))delete state.openedDoors[door.id];
+ state.steps++;learnCurrentTile();resolveTileHazards();inspectDirection();ensureRoom();render();autosave();
 }
 function enemyTurn(){
  if(!state.enemy)return;
@@ -1207,7 +1263,8 @@ function load(){
  if(state.enemy){
   state.enemy.xp=enemyTypes.find(enemy=>enemy.name===state.enemy.name)?.xp||0;
  }
- state.visited[visitKey()]=true;
+ DungeonKnowledge.normalize(state,floorMap);
+ learnCurrentTile();
  persist();
  $("#startModal").classList.add("hidden");
  log("Saved game restored.");
@@ -1216,9 +1273,10 @@ function load(){
 }
 function flash(c){let f=$("#flash");f.style.background=c;setTimeout(()=>f.style.background="#0000",110)}
 $("#forward").onclick=move;
-$("#openDoor").onclick=interact;
-$("#turnL").onclick=()=>{if(!blocked()){state.dir=(state.dir+3)%4;render();autosave()}};
-$("#turnR").onclick=()=>{if(!blocked()){state.dir=(state.dir+1)%4;render();autosave()}};
+$("#interact").onclick=interact;
+$("#inspect").onclick=inspectAhead;
+$("#turnL").onclick=()=>{if(!blocked()){state.dir=(state.dir+3)%4;inspectDirection();render();autosave()}};
+$("#turnR").onclick=()=>{if(!blocked()){state.dir=(state.dir+1)%4;inspectDirection();render();autosave()}};
 $("#attack").onclick=attack; $("#search").onclick=searchRoom;
 $("#save").onclick=save; $("#load").onclick=load;
 $("#skills").onclick=openAbilities;
@@ -1230,7 +1288,7 @@ $("#mapbtn").onclick=()=>{renderMap();$("#mapModal").classList.remove("hidden")}
 $("#closeMap").onclick=()=>$("#mapModal").classList.add("hidden");
 $("#newgame").onclick=()=>{$("#startModal").classList.remove("hidden")};
 $("#begin").onclick=()=>{
- state=newState(); state.visited[visitKey()]=true; $("#startModal").classList.add("hidden"); log("Your party gathers at Veyra's Gate.");showTown("A new party stands ready for its first expedition.");autosave();
+ state=newState(); DungeonKnowledge.normalize(state,floorMap);learnCurrentTile(); $("#startModal").classList.add("hidden"); log("Your party gathers at Veyra's Gate.");showTown("A new party stands ready for its first expedition.");autosave();
 };
 $("#continueGame").onclick=load;
 
@@ -1288,3 +1346,4 @@ requestAnimationFrame(animateDungeonView);
 </script>
 </body>
 </html>
+
